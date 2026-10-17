@@ -83,9 +83,9 @@ async def run(req: QueueTraceRequest) -> dict:
 
     await observer.add_listener("ch_pgqueuer", on_notify)
 
-    #-------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------------
     # Workers: each its own connection and queue manager, all running one entrypoint
-    #-------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------------
     def make_handler(worker: int):
         async def handler(job: Job) -> None:
             nonlocal final
@@ -128,9 +128,9 @@ async def run(req: QueueTraceRequest) -> dict:
     ]
     await asyncio.sleep(0.5)  # every worker reaches its idle LISTEN wait
 
-    #-------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------------
     # Producer
-    #-------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------------
     t0 = time.perf_counter()
     if req.enqueue == "batch":
         events.append({"t": now(), "kind": "insert", "jobs": req.jobs})

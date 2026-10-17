@@ -26,9 +26,9 @@ const PRESETS: Record<string, Partial<Knobs>> = {
   priority: { jobs: 14, workers: 1, batch_size: 1, max_concurrent_tasks: 2, concurrency_limit: 1, job_ms: 60, priorities: true },
 };
 
-//-------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
 // Renderer, scene, camera (the same setup as the search city)
-//-------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
 const container = $("scene");
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -78,9 +78,9 @@ function resize(): void {
 addEventListener("resize", resize);
 resize();
 
-//-------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
 // Playback: one clock in trace-ms, driven by frames or by the scrub bar
-//-------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
 let view: QueueScene | null = null;
 let t = 0, end = 1, playing = false, lastFrame = 0, speed = 0.02;
 let lastHud = "";
@@ -144,9 +144,9 @@ function frame(now: number): void {
   composer.render();
 }
 
-//-------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
 // The form
-//-------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
 const form = $<HTMLFormElement>("run-form");
 
 function setKnobs(k: Knobs): void {

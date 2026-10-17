@@ -45,9 +45,9 @@ def plain_dsn() -> str:
     return settings.sqlalchemy_url("pg16").replace("postgresql+psycopg://", "postgresql://")
 
 
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # The job: fetch one page, chunk, embed, replace its rows in doc_chunks
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 async def ingest_page(source: str, client: httpx.AsyncClient, model: TextEmbedding) -> int:
     _, rst = await fetch(client, source)
     chunks = chunk_page(source, rst, settings.chunk_words)
@@ -78,9 +78,9 @@ async def enqueue_pages(queries: Queries, prefix: str = "") -> int:
     return sum(i is not None for i in ids)
 
 
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Worker factory for `pgq run jobs:create_pgqueuer`
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 def retrying(params: EntrypointExecutorParameters) -> DatabaseRetryEntrypointExecutor:
     # a GitHub hiccup re-queues the job with a doubling delay; after 3 attempts it is held as 'failed'
     return DatabaseRetryEntrypointExecutor(params, max_attempts=3, backoff_multiplier=2.0)
@@ -123,9 +123,9 @@ def build_pgqueuer(conn: asyncpg.Connection, resources: dict[str, object]) -> Pg
     return pgq
 
 
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # CLI: enqueue from the shell
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 async def main(prefix: str) -> None:
     conn = await asyncpg.connect(plain_dsn())
     try:

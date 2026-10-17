@@ -14,7 +14,7 @@ pgqueuer, access as code with pgsesame and Pulumi, and Kubernetes (kind, k3d, k3
 ```
 docker/Dockerfile               Postgres 16 + pgvector + pgvectorscale (diskann) image, from pgvector/pgvector:pg16
 docker/postgres-pgvector.yaml   compose file: container `pgvector-dev`, data in a named volume
-docker/Dockerfile.pg18          Postgres 18 + pgvector + pgvectorscale + pg_vectorsearch (prism), built from source
+docker/Dockerfile.pg18          Postgres 18 + pgvector + pgvectorscale + pg_vectorsearch (prism) + pgmq, built from source
 docker/pg18.yaml                compose file: container `pg18-dev` on port 5441
 docker/initdb/*.sql             run once on first start: CREATE EXTENSION vector, vectorscale
 .env.example                    copy to .env; DB credentials, DATABASE_URL, COMPOSE_FILE
@@ -506,6 +506,23 @@ holding the connection lock for up to a second, and the worker loop's queries qu
 a concurrency limit, five trivial jobs took 15 s on psycopg and 0.07 s on asyncpg.
 `notebooks/pgqueuer_playground.ipynb` measures it, and walks through every mechanism above with
 workers running inside the notebook (`just nb pgqueuer_playground`).
+
+### The other queue design (pgmq)
+
+[pgmq](https://github.com/pgmq/pgmq) is a queue in the style of Amazon SQS, shipped as a Postgres
+extension in plain SQL: `pgmq.send`, `pgmq.read`, `pgmq.delete`, `pgmq.archive`, callable from
+any language. `read` claims a message by pushing its visibility timeout (`vt`) ahead; a consumer
+that crashes leaves it alone, and the message reappears when `vt` passes. pgqueuer instead marks a
+job `picked` and keeps a heartbeat fresh while the job runs, so the two expire a claim
+differently, though both claim with `FOR UPDATE SKIP LOCKED`.
+
+pgmq 1.13 has no PGDG package for Postgres 18, so `docker/Dockerfile.pg18` builds it with PGXS
+and `docker/initdb-pg18/03-enable-pgmq.sql` enables it. `notebooks/pgmq_playground.ipynb`
+(`just nb pgmq_playground`, on pg18) covers send and read, the visibility timeout as crash
+recovery, delete vs archive vs pop, extending a lease with `set_vt`, retries and a dead-letter
+queue built from `read_ct`, four consumers sharing 400 messages with no double delivery, waiting
+by polling vs `read_with_poll` vs NOTIFY (about 12 ms median for NOTIFY), delayed messages, FIFO
+groups, topic routing with wildcards, transactional enqueue, and a pgmq vs pgqueuer table.
 
 ## Settings
 

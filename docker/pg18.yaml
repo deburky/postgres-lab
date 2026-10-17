@@ -1,4 +1,4 @@
-# Postgres 18 + pgvector + pgvectorscale + pg_vectorsearch (prism), on port 5441 next to pg16.
+# Postgres 18 + pgvector + pgvectorscale + pg_vectorsearch (prism) + pgmq, on port 5441 next to pg16.
 #   docker compose -f docker/pg18.yaml up -d --build      (or: just db pg18)
 #
 # Postgres 18 images keep data under /var/lib/postgresql/18/docker, so the volume is mounted one

@@ -9,9 +9,9 @@ import { THEME } from "./theme";
 
 export type Sign = THREE.Sprite;
 
-//-------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
 // Ink strokes: screen-space lines a fixed number of pixels wide (WebGL lines are always 1 px)
-//-------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
 const inkMaterials = new Set<LineMaterial>();
 
 export function inkMaterial(color = THEME.ink, px = THEME.edgePx, opacity = 1): LineMaterial {
@@ -43,10 +43,10 @@ export function outlined<T extends THREE.Mesh>(mesh: T, grow: number | [number, 
   return mesh;
 }
 
-//-------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
 // Cages: every building. Paper: a white box with ink edges, filled with a sticky-note colour
 // while lit. Neon: a translucent box with glowing edges.
-//-------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
 export class Cage extends THREE.Group {
   private fill: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>;
   private edges: THREE.LineSegments<THREE.EdgesGeometry, THREE.LineBasicMaterial> | null = null;
@@ -85,17 +85,17 @@ export class Cage extends THREE.Group {
   }
 }
 
-//-------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
 // Colours for things that carry a hue: on paper the hue fills, the ink draws
-//-------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
 /** Text colour for a sign belonging to something with this hue. */
 export const signColor = (hue: number): string => (THEME.paper ? hex(THEME.ink) : hex(hue));
 /** Line colour (links, beams, rings) for something with this hue. */
 export const lineColor = (hue: number): number => (THEME.paper ? THEME.ink : hue);
 
-//-------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
 // Text sprites
-//-------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
 /** Archivo has to be loaded before any canvas text is drawn with it, or the sprites fall back. */
 export async function fontsReady(): Promise<void> {
   try {
@@ -168,9 +168,9 @@ export function textTexture(c: HTMLCanvasElement): THREE.CanvasTexture {
 
 export const hex = (c: number) => "#" + c.toString(16).padStart(6, "0");
 
-//-------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
 // The plate both scenes stand on
-//-------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
 /** Slab, grid, outline and district lines at the given z values. */
 export function plate(group: THREE.Group, w: number, d: number, z: number, districtZ: number[]): void {
   const slab = new THREE.Mesh(new THREE.BoxGeometry(w, 0.3, d), new THREE.MeshBasicMaterial({ color: THEME.slab }));
