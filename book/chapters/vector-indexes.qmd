@@ -50,8 +50,7 @@ here) reaches only about 0.40, and recall rises to 0.81 at 40 and 0.93 at 80.
 Random vectors are the worst case for both quantization and partitioning. Their coordinates are
 independent, so binary codes have nothing to capture and k-means has no clusters to follow. That is
 why DiskANN stalls at 0.76 and PRISM needs every partition. Real embeddings cluster strongly, and on
-them both indexes should do far better, though the lab did not measure that. PRISM's automatic `nprobe` aims at a recall of about 0.95. Read
-the table as a comparison under stress.
+them both indexes should do far better, though the lab did not measure that. PRISM's automatic `nprobe` aims at a recall of about 0.95.
 :::
 
 ## HNSW is the default

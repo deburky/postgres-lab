@@ -53,7 +53,7 @@ the elements share a shape.
 Postgres 12 added the SQL/JSON path language, which queries inside one document much as `jq` does.
 `$.items[*] ? (@.qty > 1)`, for example, selects the items with a quantity above one.
 
-Updates are operators too. `||` merges two documents, `-` removes a key, `#-` removes a path, and
+For updates, `||` merges two documents, `-` removes a key, `#-` removes a path, and
 `jsonb_set` writes a value at a path. With `RETURNING`, the same round trip sends back what
 changed.
 

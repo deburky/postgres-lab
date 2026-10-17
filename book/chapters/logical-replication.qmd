@@ -50,7 +50,7 @@ extra column on the replica does no harm and a missing one stops everything.
 
 ### A write on the replica stops the apply worker
 
-Nothing makes the replica read-only. A row written directly on it collides with the same key
+The replica accepts writes, and a row written directly on it collides with the same key
 arriving from the source, and the apply worker stops on the unique violation until the row is
 deleted or `ALTER SUBSCRIPTION ... SKIP (lsn = ...)` skips the change. Postgres 18 counts conflicts
 of each type in `pg_stat_subscription_stats`.
