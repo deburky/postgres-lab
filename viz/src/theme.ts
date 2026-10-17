@@ -88,6 +88,8 @@ export const NEON: Theme = {
 const wanted = new URLSearchParams(location.search).get("theme");
 export const THEME: Theme = wanted === "neon" || wanted === "dark" ? NEON : PAPER;
 document.documentElement.dataset.theme = THEME.name;
+// ?embed=1: the page sits inside another (the book), which supplies the title and the preset buttons
+if (new URLSearchParams(location.search).has("embed")) document.documentElement.dataset.embed = "";
 
 /** Reload with the other palette; everything in the scene is built from THEME at startup. */
 export function toggleTheme(): void {

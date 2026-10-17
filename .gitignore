@@ -38,3 +38,8 @@ docs/leads-intake/
 
 # editor settings
 .vscode/
+
+# the book's build output, and the replaying scenes (built by `npm run build:book`)
+book/_book/
+book/.quarto/
+book/viz/

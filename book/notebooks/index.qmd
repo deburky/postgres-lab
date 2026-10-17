@@ -1,0 +1,17 @@
+# The notebooks {.unnumbered}
+
+Every measurement in the book comes from one of these notebooks, shown here with the outputs of
+the run that produced them, against the lab's containers on one laptop. They are not re-executed
+when the book is built; to run one yourself, see [Running the lab](../chapters/running-the-lab.qmd).
+
+| notebook | chapter | server |
+|---|---|---|
+| [Sync vs async](sync_vs_async.ipynb) | [Sync and async](../chapters/sqlalchemy.qmd) | pg16 |
+| [JSONB playground](jsonb_playground.ipynb) | [Documents](../chapters/jsonb.qmd) | pg16 |
+| [PgBouncer measured](pgbouncer_playground.ipynb) | [PgBouncer](../chapters/pgbouncer.qmd) | pg16 + PgBouncer |
+| [PGlite playground](pglite_playground.ipynb) | [Postgres without a server](../chapters/pglite.qmd) | none |
+| [pgvector playground](pgvector_playground.ipynb) | [Vectors](../chapters/pgvector.qmd), [Indexes](../chapters/vector-indexes.qmd) | pg18 |
+| [pgqueuer taken apart](pgqueuer_playground.ipynb) | [A job queue](../chapters/pgqueuer.qmd) | pg16 |
+| [pgmq playground](pgmq_playground.ipynb) | [A message queue](../chapters/pgmq.qmd) | pg18 |
+| [Logical replication](logical_replication.ipynb) | [CDC](../chapters/logical-replication.qmd) | pg16 + replica |
+| [Doris CDC](doris_cdc.ipynb) | [Doris](../chapters/doris.qmd) | pg16 + Doris |

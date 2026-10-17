@@ -1,0 +1,57 @@
+# Running the lab {#sec-running}
+
+Everything in this book runs on one laptop with Docker. The repository is
+[deburky/postgres-lab](https://github.com/deburky/postgres-lab).
+
+## First run
+
+```bash
+git clone https://github.com/deburky/postgres-lab && cd postgres-lab
+cp .env.example .env     # app / pwd / app on localhost:5432
+uv sync
+just db                  # Postgres 16 + pgvector + pgvectorscale
+just smoke               # insert three documents, search them by cosine distance
+```
+
+`just` lists every recipe; each loads `.env` itself. A [dev container](https://github.com/deburky/postgres-lab/tree/main/.devcontainer)
+is included for VS Code, with the database already running next to it.
+
+## The servers
+
+| server | start | port | for |
+|---|---|---|---|
+| pg16 | `just db` | 5432 | most chapters |
+| pg18 | `just db pg18` | 5441 | PRISM, pgmq, pgsesame |
+| replica | `just db replica` | 5440 | logical replication |
+| PgBouncer | `docker compose -f docker/pgbouncer.yaml up -d` | 6432 | PgBouncer |
+| Doris | `just db doris` | 9030 | Doris CDC |
+| kind, k3d, k3s | `just k8s-up <cluster>` | 5434 to 5439 | Kubernetes |
+
+## Notebooks
+
+Run any notebook headless with papermill; the executed copy goes to `out/`:
+
+```bash
+just nb pgmq_playground          # on its default server
+just pgvector pg18               # the pgvector notebook against a chosen server
+```
+
+## The visualizations
+
+```bash
+just ingest                      # once: the SQLAlchemy docs, embedded
+just app                         # the API on :8000
+just viz                         # http://localhost:5173 (search) and /queue.html
+```
+
+Running locally, the queue page's knobs are live: every Run starts real workers. The book's copies
+replay traces recorded with `npm run save-traces` and built with `npm run build:book` in `viz/`.
+
+## Building this book
+
+```bash
+just book                        # copy the executed notebooks, build the viz, render to book/_book
+just book-preview                # live preview while editing
+```
+
+Pushing to `main` publishes it to GitHub Pages.

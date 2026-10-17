@@ -111,4 +111,15 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-
   .legend { display: none; }
   .scrub { width: calc(100vw - 32px); }
 }
+/* ?embed=1, inside the book: no title, knobs or questions box; counters and controls stay */
+:root[data-embed] .title, :root[data-embed] .knobs, :root[data-embed] .legend, :root[data-embed] .ask textarea, :root[data-embed] #theme-btn, :root[data-embed] #cams a, :root[data-embed] #cams .sep { display: none; }
+:root[data-embed] .ask { top: 12px; left: 12px; transform: none; width: auto; padding: 5px; }
+:root[data-embed] .ask button { padding: 0.5rem 1rem; }
+:root[data-embed] .times, :root[data-embed] .counts { top: 12px; right: 12px; bottom: auto; }
+:root[data-embed] .counts { grid-template-columns: repeat(3, 96px); gap: 6px; }
+:root[data-embed] .counts span { padding: 0.4rem 0.6rem; }
+:root[data-embed] .counts b, :root[data-embed] .times b { font-size: 1.15rem; }
+:root[data-embed] .scrub { bottom: 58px; width: min(540px, calc(100vw - 32px)); }
+:root[data-embed] .queue-page .status { bottom: 110px; }
+
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

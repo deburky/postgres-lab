@@ -1,0 +1,111 @@
+# Sync and async, side by side
+
+SQLAlchemy 2.0 gives you the same statements, the same models and the same results in two styles:
+blocking calls, or `await`ed ones. The interesting question is not how to write either, which takes
+an afternoon, but what async actually buys, and where it bites.
+
+## One driver, two engines
+
+The driver is chosen by the URL. psycopg 3 implements both the blocking and the asyncio DBAPI, so
+one `DATABASE_URL` serves a sync engine for scripts and migrations and an async engine for the web
+app:
+
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import create_async_engine
+
+url = "postgresql+psycopg://app:pwd@localhost:5432/app"
+engine = create_engine(url)              # scripts, Alembic, pandas
+async_engine = create_async_engine(url)  # FastAPI
+```
+
+With `postgresql+asyncpg://` only the async engine would work, and with `psycopg2` only the sync
+one. The lab defaults to psycopg for exactly this reason.
+
+| | sync | async |
+|---|---|---|
+| engine | `create_engine(url)` | `create_async_engine(url)` |
+| connection and transaction | `with engine.connect()` / `engine.begin()` | `async with engine.connect()` / `engine.begin()` |
+| session | `Session(engine)`, `sessionmaker` | `AsyncSession(engine)`, `async_sessionmaker` |
+| a round trip to the database | a plain call | `await` |
+| `select`, `insert`, `text`, models | identical | identical |
+| lazy loading | works | raises |
+
+Note what is not awaited: `.one()`, `.all()`, `.scalars()` on a result. The rows were fetched by
+`await conn.execute(...)`, and reading them is in-memory work.
+
+## The lazy-loading trap
+
+A lazy load is a query fired from a plain attribute access. In `author.notes` there is nowhere to
+put an `await`, so the async session refuses rather than block the event loop:
+
+```python
+author = (await session.execute(select(Author))).scalars().first()
+author.notes   # MissingGreenlet: greenlet_spawn has not been called
+```
+
+The same happens to attributes expired by `commit()`, which is why `AsyncSession` is almost always
+created with `expire_on_commit=False`. The ways out, in order of preference: eager-load what you
+need (`selectinload(Author.notes)`), use `await session.refresh(author, ["notes"])`, or reach for
+`AsyncAttrs` and `await author.awaitable_attrs.notes`.
+
+## What async buys: overlapping waits
+
+A single query is not faster async. What changes is what the process does while the database is
+busy. Ten queries that each spend 200 ms on the server take about 2 s one after another, and
+about 200 ms under `asyncio.gather` with a connection each from the pool. A thread pool gets the
+same overlap at the price of a thread per query.
+
+The pool sets the ceiling: `create_async_engine` defaults to `pool_size=5, max_overflow=10`, so 15
+queries overlap and the 16th waits. The database does the same total work in every case; only the
+client stopped idling. If the bottleneck is the database's CPU, async changes nothing.
+
+## Watching it happen
+
+The lab's app answers questions about the SQLAlchemy documentation with pgvector, and its
+`POST /trace` endpoint answers the same questions twice with tracing on: once **sync**, one
+connection taking them one after another, and once **async**, a task and a connection per
+question under `gather`. The scene below replays one such pair on a shared clock.
+
+::: {.viz .column-page}
+<iframe src="../viz/index.html?embed=1" loading="lazy" title="Vector search with pgvector, sync and async"></iframe>
+:::
+::: {.viz-caption .column-page}
+Six questions, sync on the left and async on the right. Each question drops into Python (embedding
+with `bge-small`), crosses to its Postgres backend, and lights its five matching chunks in the
+documentation field as the HNSW walk returns. Press Replay to watch again.
+[Open full screen](../viz/index.html){target="_blank"}.
+:::
+
+The async plate finishes while the sync one is still working through its queue, and the two wall
+times in the corner say by how much. Every backend on the async plate is a separate process
+(Postgres forks one per connection), which is the other side of the trade: concurrency on the
+client is paid for in connections on the server, and [PgBouncer](pgbouncer.qmd) exists to manage
+that bill.
+
+## Sync code from async code
+
+pandas, Alembic and much older code want a sync connection. From async code, `run_sync` hands them
+one bridged onto the async connection, so there is no need for a second engine:
+
+```python
+async with async_engine.connect() as conn:
+    df = await conn.run_sync(lambda c: pd.read_sql("SELECT * FROM events", c))
+```
+
+## Which one to use
+
+- **Scripts, notebooks, batch jobs, migrations**: sync. Every library works and stack traces are
+  simpler.
+- **Web services, and anything that waits on many databases or APIs at once**: async, with eager
+  loading, `expire_on_commit=False`, and a pool sized for your concurrency.
+- **A mixed code base**: one driver (psycopg 3), one URL, both engines, and `run_sync` at the
+  boundary.
+
+::: {.callout-note}
+## In the lab
+
+`src/db.py` is the async side of that setup, and `src/settings.py` validates every server URL
+with pydantic-settings, so a malformed DSN fails at import rather than at the first query.
+Notebook: [Sync vs async](../notebooks/sync_vs_async.ipynb).
+:::

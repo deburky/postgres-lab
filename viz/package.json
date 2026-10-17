@@ -12,7 +12,9 @@
     "record": "node record.mjs 9",
     "record:neon": "CITY_THEME=neon node record.mjs 9",
     "record:queue": "CITY_PAGE=queue node record.mjs 10",
-    "record:queue-retry": "CITY_PAGE=queue CITY_PRESET=retry node record.mjs 10"
+    "record:queue-retry": "CITY_PAGE=queue CITY_PRESET=retry node record.mjs 10",
+    "save-traces": "node save-traces.mjs",
+    "build:book": "VITE_TRACES=./traces/ vite build --outDir ../book/viz --emptyOutDir"
   },
   "dependencies": {
     "three": "^0.185.0"

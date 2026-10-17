@@ -203,3 +203,21 @@ sesame-import server="pg18":
     set -euo pipefail
     url=$(PYTHONPATH=src uv run python -c "from settings import settings; print(settings.sqlalchemy_url('{{ server }}'))")
     SESAME_DSN="${url/+psycopg/}" uv run sesame import -o out/sesame_{{ server }}.yaml --schema public
+
+# copy the executed notebooks into the book; run them first (just nb <name>, just pgvector pg18)
+[group('book')]
+book-notebooks:
+    cp out/pgvector_pg18.ipynb book/notebooks/pgvector_playground.ipynb
+    cp out/pgqueuer_playground.ipynb out/pgmq_playground.ipynb out/doris_cdc.ipynb out/logical_replication.ipynb out/pglite_playground.ipynb book/notebooks/
+    cp notebooks/sync_vs_async.ipynb notebooks/jsonb_playground.ipynb notebooks/pgbouncer_playground.ipynb book/notebooks/
+
+# the book: the replaying viz into book/viz, then quarto into book/_book (CI does the same on push)
+[group('book')]
+book:
+    cd viz && npm ci && npm run build:book
+    quarto render book
+
+# live preview of the book while editing
+[group('book')]
+book-preview:
+    quarto preview book

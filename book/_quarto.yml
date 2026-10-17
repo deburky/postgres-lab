@@ -1,0 +1,75 @@
+project:
+  type: book
+  output-dir: _book
+  resources:
+    - viz/
+
+book:
+  title: "The World of Postgres"
+  subtitle: "Adventures in a single database"
+  author: "Denis Burakov"
+  description: "A field guide to Postgres as an application backend: SQLAlchemy, vectors, queues, change data capture and access as code, every claim measured in a notebook."
+  site-url: https://deburky.github.io/postgres-lab/
+  repo-url: https://github.com/deburky/postgres-lab
+  repo-subdir: book
+  repo-actions: [source, issue]
+  search: true
+  page-navigation: true
+  chapters:
+    - index.qmd
+    - part: "Postgres from Python"
+      chapters:
+        - chapters/sqlalchemy.qmd
+        - chapters/jsonb.qmd
+        - chapters/pgbouncer.qmd
+        - chapters/pglite.qmd
+    - part: "Search"
+      chapters:
+        - chapters/pgvector.qmd
+        - chapters/vector-indexes.qmd
+        - chapters/bulk-loading.qmd
+    - part: "Queues"
+      chapters:
+        - chapters/pgqueuer.qmd
+        - chapters/pgmq.qmd
+    - part: "Moving data"
+      chapters:
+        - chapters/logical-replication.qmd
+        - chapters/doris.qmd
+    - part: "Access and operations"
+      chapters:
+        - chapters/access.qmd
+        - chapters/kubernetes.qmd
+  appendices:
+    - chapters/running-the-lab.qmd
+    - notebooks/index.qmd
+    - notebooks/sync_vs_async.ipynb
+    - notebooks/jsonb_playground.ipynb
+    - notebooks/pgbouncer_playground.ipynb
+    - notebooks/pglite_playground.ipynb
+    - notebooks/pgvector_playground.ipynb
+    - notebooks/pgqueuer_playground.ipynb
+    - notebooks/pgmq_playground.ipynb
+    - notebooks/logical_replication.ipynb
+    - notebooks/doris_cdc.ipynb
+
+format:
+  html:
+    theme: [cosmo, theme.scss]
+    toc: true
+    toc-depth: 2
+    number-depth: 2
+    code-copy: true
+    code-overflow: scroll
+    highlight-style: github
+    smooth-scroll: true
+    link-external-newwindow: true
+    include-in-header:
+      text: |
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+# The notebooks render from the outputs saved when they ran against the lab's containers; nothing
+# connects to a database while the book builds.
+execute:
+  enabled: false

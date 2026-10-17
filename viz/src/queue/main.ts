@@ -8,6 +8,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { fontsReady, hex, setInkResolution } from "../neon";
+import { recorded, TRACES } from "../replay";
 import { otherThemeName, THEME, toggleTheme } from "../theme";
 import { QueueScene, workerHue } from "./scene";
 import { counts, derive, type QueueConfig, type QueueTrace, type RawQueueTrace } from "./trace";
@@ -170,25 +171,32 @@ function readKnobs(): QueueConfig {
   };
 }
 
+let preset = "skip";
+
 async function run(): Promise<void> {
   const btn = $<HTMLButtonElement>("run-btn");
   btn.disabled = true; btn.textContent = "running…";
   $("status").textContent = "";
   try {
-    const res = await fetch(`${API}/queue/trace`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(readKnobs()) });
-    if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
-    const tr = derive((await res.json()) as RawQueueTrace);
+    const tr = derive(TRACES ? await recorded<RawQueueTrace>(`queue-${preset}`) : await fetchTrace());
     if (tr.timed_out) $("status").textContent = "The run hit the 60 s limit; showing what happened until then.";
     play(tr);
   } catch (err) {
-    $("status").textContent = `No answer from ${API}: ${err}`;
+    $("status").textContent = TRACES ? `Could not load the recorded run: ${err}` : `No answer from ${API}: ${err}`;
   } finally {
     btn.disabled = false; btn.textContent = "Run";
   }
 }
 
+async function fetchTrace(): Promise<RawQueueTrace> {
+  const res = await fetch(`${API}/queue/trace`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(readKnobs()) });
+  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+  return (await res.json()) as RawQueueTrace;
+}
+
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-preset]")) {
   b.addEventListener("click", () => {
+    preset = b.dataset.preset!;
     setKnobs({ ...BASE, ...PRESETS[b.dataset.preset!] });
     for (const o of document.querySelectorAll("[data-preset]")) o.classList.toggle("on", o === b);
     void run();
@@ -204,7 +212,16 @@ for (const b of document.querySelectorAll<HTMLButtonElement>("[data-cam]")) b.ad
 $("theme-btn").textContent = otherThemeName();
 $("theme-btn").addEventListener("click", toggleTheme);
 
-setKnobs(BASE);
-document.querySelector("[data-preset=skip]")?.classList.add("on");
+// ?preset=retry opens on that scenario (the book links each one)
+const wanted = new URLSearchParams(location.search).get("preset");
+if (wanted && wanted in PRESETS) preset = wanted;
+setKnobs({ ...BASE, ...PRESETS[preset] });
+if (TRACES) {
+  // recorded runs only: the knobs show what each preset ran with, and Run is gone
+  for (const el of form.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input, select")) el.disabled = true;
+  $("run-btn").hidden = true;
+  form.querySelectorAll(".eyebrow")[1].textContent = "Knobs (recorded run)";
+}
+document.querySelector(`[data-preset=${preset}]`)?.classList.add("on");
 requestAnimationFrame(frame);
 void fontsReady().then(run); // open on a running example, once the scene's font is in

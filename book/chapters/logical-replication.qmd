@@ -1,0 +1,69 @@
+# Postgres to Postgres: change data capture
+
+Change data capture is usually drawn as Postgres, then Debezium, then Kafka, then the target. The
+first arrow is the interesting one, and Postgres can follow it on its own: the source publishes
+tables, a second Postgres subscribes, and every committed insert, update and delete arrives a few
+milliseconds later, in commit order. Debezium, AWS DMS and Redshift zero-ETL all read this same
+stream; they just write it somewhere other than Postgres.
+
+## Publish, subscribe
+
+The source needs one setting, `wal_level = logical` (on RDS, `rds.logical_replication = 1`).
+Then:
+
+```sql
+-- on the source
+CREATE PUBLICATION lab_pub FOR TABLE events, documents, cdc_demo;
+
+-- on the replica, outside a transaction
+CREATE SUBSCRIPTION lab_sub
+  CONNECTION 'host=db port=5432 dbname=app user=app password=...'
+  PUBLICATION lab_pub;
+```
+
+A publication is a menu; it changes nothing by itself. The subscription creates a replication slot
+on the source, copies the existing rows, then streams changes from the slot. Tables need a primary
+key (or a `REPLICA IDENTITY`) so updates and deletes can find their row, and the replica must
+already have the tables: **DDL is never replicated**. A `vector` column comes across unchanged as
+long as both sides have pgvector.
+
+In the lab, changes were visible on the replica about 9 ms after commit.
+
+## Three ways it goes wrong
+
+The notebook reproduces each one.
+
+**The slot holds WAL.** A slot that nobody reads never advances, and Postgres cannot recycle WAL
+past it. With the subscription disabled and 20,000 rows written, 7 MB stayed pinned on the source
+until it was re-enabled. In production that is how a forgotten Debezium connector fills a disk.
+`max_slot_wal_keep_size` caps it: past the cap the slot is invalidated and the subscriber starts
+over, and losing a slot beats losing the primary.
+
+**DDL breaks the stream.** Add a column on the source and write a row: the apply worker cannot fit
+it into the replica's table, logs an error and retries forever, and nothing after that row
+arrives. Adding the column on the replica resumes it. The rule is to change the subscriber first,
+then the publisher, because an extra column on the replica is fine and a missing one is not.
+
+**Conflicts.** Nothing makes the replica read-only. A row written there collides with the same key
+arriving from the source, and the apply worker stops on the unique violation. Delete the row (or
+`ALTER SUBSCRIPTION ... SKIP (lsn = ...)`) and it resumes. Postgres 18 counts conflicts per type
+in `pg_stat_subscription_stats`.
+
+## What else is not replicated
+
+- **Sequences**: the replica's counters never move, so reset them after a failover with `setval`.
+- **Slots across failover**, before Postgres 17, which adds failover slots.
+
+Publications also take row filters and column lists since Postgres 15:
+`CREATE PUBLICATION p FOR TABLE events (id, kind) WHERE (kind = 'purchase')`.
+
+::: {.callout-tip}
+## When to use what
+
+Logical replication when the target is Postgres and needs no transformation. Debezium when there
+are several consumers or the target is not Postgres. And for an analytical target that can read
+the stream itself, see the [next chapter](doris.qmd).
+:::
+
+Notebook: [Logical replication](../notebooks/logical_replication.ipynb), against a second pg16
+started with `just db replica`.

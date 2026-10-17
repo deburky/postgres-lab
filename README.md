@@ -9,6 +9,10 @@ pgqueuer, access as code with pgsesame and Pulumi, and Kubernetes (kind, k3d, k3
 | --- | --- | --- |
 | ![city](out/city.gif) | ![queue](out/queue.gif) | ![queue retry](out/queue-retry.gif) |
 
+**Read it as a book:** [The World of Postgres](https://deburky.github.io/postgres-lab/), a guide built
+from this repository with Quarto (`book/`), with the notebooks rendered and the scenes running in the
+browser from recorded traces. `just book` builds it locally.
+
 ## Layout
 
 ```
@@ -359,6 +363,11 @@ palette into `out/city-neon.*`. `npm run record:queue` records the job queue pag
 (10 s of the SKIP LOCKED run), `npm run record:queue-retry` the Retries preset into
 `out/queue-retry.*`; `CITY_PAGE=queue CITY_PRESET=<preset> node record.mjs 10` any other. `CITY_GL=swiftshader` falls back to software
 rendering (a few fps) on a machine without a usable GPU.
+
+For the book, `npm run save-traces` (app on :8000, preview on :4173) saves the responses each page
+asks for into `viz/public/traces/`, and `npm run build:book` builds the pages with `VITE_TRACES` set,
+so they replay those files with no server (`src/replay.ts`). `?embed=1` drops the title and knobs for
+an iframe, and `queue.html?preset=retry` opens on a scenario.
 
 ## A job queue in Postgres, live (three.js)
 

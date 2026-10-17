@@ -1,0 +1,64 @@
+# Documents in a relational database
+
+`JSONB` lets a column hold a whole document, binary-encoded and indexable, next to ordinary typed
+columns. It is the answer to "we need a bit of schemaless data" that does not require a second
+database. The SQL is compact once you know half a dozen operators, and SQLAlchemy maps each of
+them to Python.
+
+## Reading values out
+
+| SQL | SQLAlchemy | result |
+|---|---|---|
+| `payload -> 'k'` | `Event.payload["k"]` | jsonb |
+| `payload ->> 'k'` | `Event.payload["k"].astext` | text |
+| `payload #>> '{a,b}'` | `Event.payload[("a", "b")].astext` | text, nested |
+| `(payload ->> 'k')::int` | `Event.payload["k"].as_integer()` | integer |
+
+A missing key comes back as SQL `NULL`, and that matters more than it looks.
+
+## Filtering, and the NULL trap
+
+Containment, `@>`, is the workhorse: it asks whether the document includes a given fragment, and a
+GIN index serves it.
+
+```python
+select(Event).where(Event.payload.contains({"user": {"plan": "pro"}}))
+```
+
+The trap is negation. `payload ->> 'device' != 'web'` silently drops every row that has no
+`device` key at all, because `NULL != 'web'` is not true, it is `NULL`. When absence should count
+as "not web", say so: `or_(Event.payload["device"].astext != "web", ~Event.payload.has_key("device"))`.
+
+## Arrays become rows
+
+`jsonb_array_elements` turns one row holding an array into one row per element, and from there
+`WHERE`, `GROUP BY` and `JOIN` work as usual. In SQLAlchemy the function becomes something you can
+put in `FROM` with `.table_valued(...)`, and a join `ON true`, which Postgres evaluates laterally,
+once per row:
+
+```python
+item = func.jsonb_array_elements(Event.payload["items"]).table_valued(column("value", JSONB))
+select(Event.id, item.c.value["sku"].astext).join(item, true())
+```
+
+`jsonb_to_recordset` does the same with typed columns instead of one `jsonb` value, which saves
+the casts when the elements share a shape.
+
+## Paths and updates
+
+Postgres 12 added the SQL/JSON path language (`$.items[*] ? (@.qty > 1)`), a small query language
+that runs inside one document and is a close cousin of `jq`. Updates are operators too: `||`
+merges, `-` removes a key, `#-` removes a path, `jsonb_set` writes one, and `RETURNING` sends back
+what changed in the same round trip.
+
+::: {.callout-tip}
+## When JSONB, when columns
+
+Use columns for anything you filter, join or aggregate on routinely, and JSONB for the long tail:
+attributes that differ per row, payloads you store as received, settings. A GIN index with
+`jsonb_path_ops` makes containment fast, but no index makes a JSONB key as cheap to query as a
+typed column.
+:::
+
+Notebook: [JSONB playground](../notebooks/jsonb_playground.ipynb), with every query returned as a
+DataFrame and the compiled SQL beside it.

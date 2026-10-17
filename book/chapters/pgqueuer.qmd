@@ -1,0 +1,92 @@
+# A job queue that is just a table
+
+Before reaching for Redis or RabbitMQ, it is worth knowing that Postgres can be a perfectly good
+job queue, and that the queue then shares transactions with your data. [PgQueuer](https://github.com/janbjorge/pgqueuer)
+builds one from three Postgres features:
+
+- **`FOR UPDATE SKIP LOCKED`**: a worker claims rows nobody else has locked, so any number of
+  workers pull from one table without handing out the same job twice;
+- **`LISTEN` / `NOTIFY`**: a trigger notifies a channel on every insert, so idle workers wake within
+  milliseconds instead of polling;
+- **transactions**: a job enqueued in the same transaction as the data it refers to exists if and
+  only if that data was committed.
+
+## Watching a real run
+
+The scene below replays runs recorded from the lab's `POST /queue/trace` endpoint, which starts real
+pgqueuer workers on their own connections, enqueues jobs, and records every insert, every `NOTIFY`
+the trigger sent, and each attempt's start and end per worker.
+
+::: {.viz .column-page}
+<iframe id="queue-frame" src="../viz/queue.html?preset=skip&embed=1" loading="lazy" title="A pgqueuer run, replayed"></iframe>
+:::
+
+::: {.chips .column-page}
+<a href="#queue-frame" onclick="document.getElementById('queue-frame').src='../viz/queue.html?preset=skip&embed=1'">SKIP LOCKED</a>
+<a href="#queue-frame" onclick="document.getElementById('queue-frame').src='../viz/queue.html?preset=notify&embed=1'">NOTIFY</a>
+<a href="#queue-frame" onclick="document.getElementById('queue-frame').src='../viz/queue.html?preset=limit&embed=1'">Limit</a>
+<a href="#queue-frame" onclick="document.getElementById('queue-frame').src='../viz/queue.html?preset=retry&embed=1'">Retries</a>
+<a href="#queue-frame" onclick="document.getElementById('queue-frame').src='../viz/queue.html?preset=priority&embed=1'">Priority</a>
+<a href="../viz/queue.html" target="_blank">Open full screen</a>
+:::
+
+Python inserts on the far side and rows land in the `pgqueuer` table, one cell per job. A ring
+spreads from the table for each `NOTIFY`, and idle workers flash as it reaches them. A row lights
+in a worker's colour while that worker holds it, and the job sits on the worker's roof. A finished
+job's row disappears (pgqueuer deletes it) and drops into the `pgqueuer_log` strip at the front.
+
+| preset | what to watch |
+|---|---|
+| SKIP LOCKED | 24 jobs, 3 workers, batches of 2: three colours share one table and never the same row |
+| NOTIFY | one `INSERT` per job: each ring wakes an idle worker, which picks the row within milliseconds |
+| Limit | `concurrency_limit = 2` across 3 workers: the picked counter never passes 2 |
+| Retries | 30% of attempts fail: peach rows wait out a doubling delay before their next attempt |
+| Priority | one worker, one job at a time: tall (high-priority) rows go first, whatever their insert order |
+
+## How a claim works, and how it expires
+
+The dequeue is one statement: select the next eligible rows `FOR UPDATE SKIP LOCKED`, set their
+status to `picked`, commit. The lock lasts only as long as that statement; while the job runs, the
+row is simply marked. The worker keeps a `heartbeat` column fresh, and a job whose heartbeat is
+older than `heartbeat_timeout` (30 s by default) is taken over by the next worker that dequeues.
+So a crashed worker's jobs come back on their own, a few seconds after its heartbeats stop.
+
+## What the library adds
+
+```python
+def retrying(params: EntrypointExecutorParameters) -> DatabaseRetryEntrypointExecutor:
+    return DatabaseRetryEntrypointExecutor(params, max_attempts=3, backoff_multiplier=2.0)
+
+@pgq.entrypoint("ingest_page", concurrency_limit=2, on_failure="hold", executor_factory=retrying)
+async def run_ingest_page(job: Job, ctx: Context) -> None:
+    await ingest_page(job.payload.decode(), ctx.resources["http"], ctx.resources["model"])
+
+await queries.enqueue(
+    ["ingest_page"] * len(pages),
+    [p.encode() for p in pages],
+    [0] * len(pages),                               # priorities
+    dedupe_key=[f"ingest_page:{p}" for p in pages],
+    on_conflict="skip",
+)
+```
+
+- **Dedupe keys**: enqueueing the same key while a job with it is waiting does nothing, so running
+  the ingest twice queues nothing new.
+- **Retries with backoff**, and `on_failure="hold"` to keep a job that ran out of attempts as
+  `failed`, for inspection and `pgq requeue`.
+- **`concurrency_limit`**, enforced in the database across every worker, not per process.
+- **Schedules**: cron expressions run by whichever worker gets there first.
+
+The lab's `app/jobs.py` runs the documentation ingest this way, one job per page: two draining
+workers ingest all 20 pages (407 chunks) in about 18 s, most of it loading the embedding model.
+
+::: {.callout-warning}
+## Use asyncpg for the workers
+
+pgqueuer's psycopg driver waits for notifications while holding the connection lock for up to a
+second, and the worker loop's queries queue behind it. With a concurrency limit, five trivial jobs
+took 15 s on psycopg and 0.07 s on asyncpg.
+:::
+
+Notebook: [pgqueuer taken apart](../notebooks/pgqueuer_playground.ipynb), with workers running as
+asyncio tasks inside the notebook. The [next chapter](pgmq.qmd) looks at the other design.

@@ -1,0 +1,50 @@
+# Postgres without a server
+
+[PGlite](https://pglite.dev/) is Postgres 17 compiled to WebAssembly: the whole engine inside a
+JavaScript process, with no daemon, no port and no Docker. [py-pglite](https://pypi.org/project/py-pglite/)
+starts it from Python behind a socket that speaks the wire protocol, so psycopg and SQLAlchemy
+connect as they would to any Postgres. It starts in about two seconds, which makes it interesting
+for one job in particular: tests.
+
+## What works
+
+The lab's own models run unchanged. `Base.metadata.create_all` creates the `documents` table with
+its `Vector(1536)` column and the JSONB `events` table, because pgvector is bundled. Distances,
+kNN and even an HNSW index work inside WebAssembly. The code under test cannot tell that it is not
+talking to a server, which is the point.
+
+## Where it stops being Postgres
+
+The notebook found four limits, each demonstrated or documented there:
+
+1. **One connection at a time.** PGlite is single-user, and the bridge accepts one client. A second
+   simultaneous connection crashed psycopg while the notebook was being written, so everything
+   goes through one shared engine.
+2. **Messages above about 6 KB break the bridge** in py-pglite 0.5.3, so a 1536-dimension vector
+   cannot be sent from Python. Generate vectors server-side, or use smaller ones.
+3. **Roughly half native speed**, which is fine for tests and wrong for benchmarks.
+4. **Starting or stopping a manager kills every PGlite process on the machine**, including the one
+   a notebook or another test run is using.
+
+## The real use: a test fixture
+
+One database per test session, `create_all` once, and a transaction per test that is rolled back
+at the end:
+
+```python
+@pytest.fixture
+def session(engine):
+    with engine.connect() as conn:
+        trans = conn.begin()
+        yield Session(bind=conn)
+        trans.rollback()
+```
+
+| need | PGlite | Docker Postgres |
+|---|---|---|
+| unit tests and CI without services | yes, about 2 s to start | slower, needs Docker |
+| SQL, JSONB and pgvector parity | yes, the same Postgres core | yes |
+| concurrency, locks, PgBouncer, replication, timings | no | yes |
+| large payloads from Python | not through py-pglite 0.5.3 | yes |
+
+Notebook: [PGlite playground](../notebooks/pglite_playground.ipynb).

@@ -1,0 +1,150 @@
+// Paper and ink, the same design as the lab's visualizations: white paper, black 1.6px strokes,
+// 10px corners, Archivo, sticky-note fills only for what matters, violet only for links.
+
+/*-- scss:defaults --*/
+$ink: #1e1e1e;
+$ink-2: #3a3a3a;
+$muted: #6f6f6f;
+$wash: #f7f7f5;
+$line-soft: #d9d9d4;
+$violet: #6965db;
+$violet-deep: #5753c9;
+$yellow: #ffd166;
+$lime: #c7ea6b;
+$peach: #ffb4a2;
+$sky: #9fd3f5;
+
+$body-bg: #ffffff;
+$body-color: $ink;
+$primary: $violet;
+$link-color: $violet-deep;
+$font-family-sans-serif: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+$font-family-monospace: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+$headings-font-weight: 700;
+$headings-color: $ink;
+$border-radius: 10px;
+$code-color: $ink;
+$code-block-bg: $wash;
+$sidebar-bg: #ffffff;
+$sidebar-fg: $ink-2;
+$toc-color: $muted;
+$table-border-color: $line-soft;
+
+/*-- scss:rules --*/
+body {
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.003em;
+}
+
+h1, h2, h3, .title {
+  letter-spacing: -0.015em;
+}
+
+.quarto-title .subtitle {
+  color: $muted;
+  font-weight: 500;
+}
+
+// code: ink-bordered cards
+div.sourceCode, pre.sourceCode {
+  border: 1.6px solid $ink;
+  border-radius: 10px;
+  background: $wash;
+}
+code:not(.sourceCode) {
+  background: $wash;
+  border: 1px solid $line-soft;
+  border-radius: 5px;
+  padding: 0.05em 0.3em;
+  color: $ink;
+}
+
+// tables: thin rules, ink header line
+table.table, .table {
+  font-size: 0.92rem;
+  thead th {
+    border-bottom: 1.6px solid $ink !important;
+    font-weight: 600;
+  }
+}
+
+// callouts as sticky notes
+.callout {
+  border: 1.6px solid $ink !important;
+  border-radius: 10px !important;
+  box-shadow: none;
+}
+.callout-note { background: rgba($sky, 0.22); }
+.callout-tip { background: rgba($lime, 0.28); }
+.callout-warning { background: rgba($yellow, 0.3); }
+.callout-important { background: rgba($peach, 0.3); }
+.callout .callout-header { background: transparent !important; border: 0 !important; }
+
+// figures and the live scenes
+.figure img, img.ink {
+  border: 1.6px solid $ink;
+  border-radius: 10px;
+}
+.viz {
+  border: 1.6px solid $ink;
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 1rem 0 0.4rem;
+  iframe {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    min-height: 420px;
+    border: 0;
+  }
+}
+.viz-caption {
+  color: $muted;
+  font-size: 0.86rem;
+  margin-bottom: 1.4rem;
+}
+
+// a row of chips linking to presets
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0.4rem 0 1rem;
+  a {
+    border: 1.5px solid $ink;
+    border-radius: 10px;
+    padding: 0.15rem 0.6rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: $ink;
+    text-decoration: none;
+  }
+  a:hover { background: $lime; }
+}
+
+// sticky-note highlights for the one number that matters
+.hl { background: $yellow; padding: 0 0.2em; border-radius: 3px; }
+.hl-lime { background: $lime; padding: 0 0.2em; border-radius: 3px; }
+
+// the chapter map on the home page
+.map {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 1rem 0 1.5rem;
+  > div {
+    border: 1.6px solid $ink;
+    border-radius: 10px;
+    padding: 0.8rem 0.9rem;
+    p { margin: 0.2rem 0 0; color: $ink-2; font-size: 0.9rem; }
+    strong { font-size: 1rem; }
+  }
+  > div:nth-child(5n + 1) { background: rgba($yellow, 0.35); }
+  > div:nth-child(5n + 2) { background: rgba($lime, 0.35); }
+  > div:nth-child(5n + 3) { background: rgba($sky, 0.35); }
+  > div:nth-child(5n + 4) { background: rgba(#cbb8ff, 0.35); }
+  > div:nth-child(5n + 5) { background: rgba($peach, 0.35); }
+}
+
+.sidebar-title, .sidebar-item-text { font-weight: 500; }
+.sidebar-item .active { color: $violet-deep !important; font-weight: 600; }

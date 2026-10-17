@@ -1,0 +1,45 @@
+# The same servers on local Kubernetes
+
+The lab's Postgres images also run as pods on a local cluster, so the pgvector notebook's
+concurrency tables can be compared with the compose ones. Every local cluster here is a container
+inside Docker Desktop's VM, so this measures Kubernetes networking and pod overhead on the same
+cores, not a different machine.
+
+## kind, k3d and k3s
+
+```bash
+just k8s-up kind     # stock Kubernetes, ports 5434 / 5435
+just k8s-up k3d      # k3s through k3d, ports 5436 / 5437
+just k8s-up k3s      # k3s in one container from Python, ports 5438 / 5439
+just k8s-test kind   # the pgvector notebook against the cluster
+```
+
+| | kind | k3d |
+|---|---|---|
+| distribution | stock Kubernetes, built with kubeadm | k3s: one binary, SQLite datastore, trimmed components |
+| node image | `kindest/node`, 1.3 GB | `rancher/k3s`, about 250 MB |
+| cluster create | about 60 s with the image local | about 15 s after the first pull |
+| host ports | mapped straight onto the node container | on a separate load-balancer container |
+| loading a local image | `kind load docker-image` | `k3d image import` |
+| extras by default | none | Traefik ingress and a local-path storage class |
+
+For the benchmark, the choice does not change the result. kind when you want stock Kubernetes,
+k3d when you want it fast and small.
+
+## k3s from Python, with no cluster tool at all
+
+Docker Desktop's own Kubernetes is switched on in its settings, and kind's node needs kubeadm run
+inside it, so neither can be started from the Docker SDK. k3s can: it is one binary that bootstraps
+the whole cluster, which is why k3d is a thin wrapper around the Docker client. `k8s/k3s.py` does
+the same with docker-py in about 150 lines:
+
+1. run `rancher/k3s` as a privileged container and wait for the node;
+2. stream images in from the local Docker cache (`docker save` into `ctr images import`), so
+   nothing is pulled twice;
+3. drop the manifests into k3s's auto-deploy directory, which k3s applies on its own, so there is
+   no `kubectl` call;
+4. wait for the pods and for Postgres to answer on the host port.
+
+About 40 seconds cold, 10 when the container already exists. The pgvector notebook calls it
+itself when pointed at `k3s-pg16`, so the Kubernetes run works from a clean machine with only
+Docker installed.

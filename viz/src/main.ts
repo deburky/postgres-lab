@@ -10,6 +10,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { City } from "./city";
 import { fontsReady, setInkResolution } from "./neon";
 import { otherThemeName, THEME, toggleTheme } from "./theme";
+import { recorded, TRACES } from "./replay";
 import { derive, type RawScenario, type RawTrace, type Scenario } from "./trace";
 
 const API = new URLSearchParams(location.search).get("api") ?? "http://127.0.0.1:8000";
@@ -47,7 +48,8 @@ controls.maxPolarAngle = Math.PI / 2 - 0.05;
 
 const L = -GAP / 2, R = GAP / 2;
 const CAMS: Record<string, { pos: [number, number, number]; look: [number, number, number] }> = {
-  both: { pos: [0, 40, 56], look: [0, 9, 0] },
+  // embedded there is no questions box above the plates, so the camera looks lower and frames them whole
+  both: "embed" in document.documentElement.dataset ? { pos: [0, 44, 50], look: [0, 1, 4] } : { pos: [0, 40, 56], look: [0, 9, 0] },
   sync: { pos: [L + 18, 18, 28], look: [L, 0, 0] },
   async: { pos: [R + 18, 18, 28], look: [R, 0, 0] },
   docs: { pos: [0, 24, 40], look: [0, 0, 12] },
@@ -124,6 +126,7 @@ function frame(now: number): void {
 // Ask
 // -------------------------------------------------------------------------------
 async function trace(questions: string[], mode: "sync" | "async"): Promise<Scenario> {
+  if (TRACES) return derive(await recorded<RawScenario>(`city-${mode}`));
   const res = await fetch(`${API}/trace`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ questions, mode, k: field.table.k }) });
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
   return derive((await res.json()) as RawScenario);
@@ -142,7 +145,7 @@ async function ask(): Promise<void> {
   } catch (err) {
     $("status").textContent = `No answer from ${API}: ${err}`;
   } finally {
-    btn.disabled = false; btn.textContent = "Ask";
+    btn.disabled = false; btn.textContent = TRACES ? "Replay" : "Ask";
   }
 }
 
@@ -165,8 +168,20 @@ $<HTMLTextAreaElement>("questions").addEventListener("input", fitQuestions);
 $<HTMLTextAreaElement>("questions").value = DEFAULT_QUESTIONS.join("\n");
 fitQuestions();
 
-fontsReady().then(() => fetch(`${API}/field`))
-  .then(async r => { if (!r.ok) throw new Error(`${r.status} ${await r.text()}`); return r.json() as Promise<Pick<RawTrace, "table" | "field">>; })
+if (TRACES) {
+  // recorded runs only: the default questions, replayed
+  $<HTMLTextAreaElement>("questions").readOnly = true;
+  $("ask-btn").textContent = "Replay";
+}
+
+async function loadField(): Promise<Pick<RawTrace, "table" | "field">> {
+  if (TRACES) return recorded("field");
+  const r = await fetch(`${API}/field`);
+  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+  return (await r.json()) as Pick<RawTrace, "table" | "field">;
+}
+
+fontsReady().then(loadField)
   .then(f => {
     field = f;
     requestAnimationFrame(frame);

@@ -1,0 +1,52 @@
+# Postgres to Apache Doris
+
+[Apache Doris](https://doris.apache.org/) is a columnar analytical database that speaks the MySQL
+protocol. Since 4.1 it can follow Postgres by itself: one statement creates the target tables,
+copies the rows and streams changes from a replication slot, with no Kafka or Debezium deployment
+in between.
+
+```sql
+CREATE JOB pg_mirror_job
+PROPERTIES ("max_interval" = "1")
+ON STREAMING
+FROM POSTGRES (
+    "jdbc_url" = "jdbc:postgresql://db:5432/app",
+    "driver_url" = "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.4/postgresql-42.7.4.jar",
+    "driver_class" = "org.postgresql.Driver",
+    "user" = "app", "password" = "...",
+    "database" = "app", "schema" = "doris_src",
+    "include_tables" = "docs",
+    "offset" = "initial"
+)
+TO DATABASE pg_mirror ("table.create.properties.replication_num" = "1");
+```
+
+The lab runs one frontend and one backend next to pg16 and pointed a job at the project's tables.
+What it found on Doris 4.1.4:
+
+| | |
+|---|---|
+| source side | the job creates its own publication and slot, one per job; `DROP JOB` removes both |
+| latency | seconds, not milliseconds: about 11 with the default `max_interval` of 10, about 5 with 1 |
+| types | `jsonb` lands as `text`, `uuid` as `text`, `timestamptz` as `datetime(6)` in the Doris time zone |
+| `vector` | auto table creation refuses it; in a pre-created table it arrives as NULL, silently |
+| generated columns | copied by the snapshot, then dropped once streaming starts |
+| DDL | added and dropped columns propagate, which Postgres to Postgres does not do |
+
+## The vector problem
+
+Doris's CDC client is Debezium's Postgres connector, and Debezium has no converter for pgvector's
+`vector`. The column does not fail; it arrives as NULL. The workaround the notebook verifies is a
+trigger-maintained `real[]` copy of the embedding on the source, which arrives as `ARRAY<FLOAT>`,
+and Doris's own `cosine_distance` then returns the same top five as pgvector.
+
+::: {.callout-warning}
+## Sized for a server
+
+The images are large (4 GB frontend, 9 GB backend), and their defaults assume a dedicated machine:
+an 8 GB heap and a backend sized to 90% of memory, which on Docker Desktop ends in
+`MEM_LIMIT_EXCEEDED`. The lab's compose file caps both (`DORIS_FE_HEAP`, `DORIS_BE_MEM`) to
+fit beside the other containers.
+:::
+
+Notebook: [Doris CDC](../notebooks/doris_cdc.ipynb), started with `just db doris`.

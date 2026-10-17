@@ -1,0 +1,70 @@
+# Welcome {.unnumbered}
+
+Postgres is usually introduced as the place where an application keeps its rows. This book is
+about everything else it turns out to be: a vector store, a job queue, a message broker, the
+source of a change stream, the thing a permission spec is applied to. Each chapter takes one of
+those roles, asks what it really costs, and answers with a measurement rather than a slogan.
+
+All of it comes from one repository, [postgres-lab](https://github.com/deburky/postgres-lab): a set
+of Docker containers (Postgres 16 and 18 with pgvector and friends, a replica, PgBouncer, Apache
+Doris), a small FastAPI app that searches the SQLAlchemy documentation, and a notebook per topic.
+Every number in the text was produced by one of those notebooks on a laptop, and the notebooks
+themselves are in the appendix with their outputs, so you can check any claim against the run
+that made it.
+
+::: {.viz .column-page}
+<iframe src="viz/queue.html?preset=skip&embed=1" loading="lazy" title="A job queue in Postgres, replayed"></iframe>
+:::
+::: {.viz-caption .column-page}
+A real pgqueuer run, replayed: three workers share one table through `FOR UPDATE SKIP LOCKED`.
+Drag to orbit; the other scenarios are in [the queue chapter](chapters/pgqueuer.qmd), and
+the [full-screen page](viz/queue.html){target="_blank"} has every knob.
+:::
+
+## The map
+
+::: {.map}
+::: {}
+**Postgres from Python**
+
+SQLAlchemy sync and async, JSONB documents, PgBouncer, and Postgres in WebAssembly for tests.
+:::
+::: {}
+**Search**
+
+pgvector from four distances to three index types (HNSW, DiskANN, PRISM), and loading vectors fast.
+:::
+::: {}
+**Queues**
+
+Two designs for a queue in a table: pgqueuer's heartbeats and pgmq's visibility timeouts.
+:::
+::: {}
+**Moving data**
+
+Logical replication from one Postgres to another, and into Apache Doris with its built-in CDC.
+:::
+::: {}
+**Access and operations**
+
+Roles and grants as code with Pulumi and pgsesame, and the same servers on local Kubernetes.
+:::
+:::
+
+## How to read it
+
+Every chapter has the same shape: the idea in a few paragraphs, the experiment that tests it,
+what the experiment found, and the traps. The chapters stand alone; read them in any order. When
+a chapter says "the notebook", it means the one linked at its end, rendered in the appendix.
+
+Two pages are interactive. The queue scene above and the vector search city in
+[Chapter 1](chapters/sqlalchemy.qmd) replay traces recorded from the lab's app: real workers,
+real `NOTIFY`s, real HNSW walks, played back in your browser with no server behind them.
+
+::: {.callout-tip}
+## Run it yourself
+
+Clone the repository, `cp .env.example .env`, `uv sync`, `just db`. That gives you Postgres 16 with
+pgvector on `localhost:5432`, and every chapter's notebook runs from there (a few need a second
+server, named in the chapter). [Running the lab](chapters/running-the-lab.qmd) has the details.
+:::
