@@ -3,15 +3,15 @@
 The lab's Postgres images also run as pods on a local Kubernetes cluster. That makes it possible to
 run the pgvector notebook's concurrency tests against a pod and compare them with the compose
 results. Every local cluster here is a container inside Docker Desktop's VM, on the same cores as
-compose. So the comparison measures what Kubernetes networking and pods add, not a faster or
-slower machine.
+compose. So the comparison measures what Kubernetes networking and pods add, rather than a faster
+or slower machine.
 
 ## kind, k3d and k3s
 
 The lab supports three ways to get a cluster. kind runs stock Kubernetes in a container, k3d runs
 k3s (a trimmed Kubernetes distribution) through its own command-line tool, and k3s can also run in
 a single container started from Python. Each one exposes the two Postgres pods on its own pair of
-ports:
+ports, as the recipes below show.
 
 ```bash
 just k8s-up kind     # stock Kubernetes, ports 5434 / 5435
@@ -39,7 +39,7 @@ in its settings, and kind's node needs kubeadm to run inside it, so neither can 
 Docker SDK (docker-py). k3s can, because it is one binary that bootstraps the whole cluster by
 itself. That is also why k3d is only a thin wrapper around the Docker client.
 
-`k8s/k3s.py` does the same job as k3d in about 150 lines of docker-py:
+`k8s/k3s.py` does the same job as k3d in about 150 lines of docker-py, in four steps.
 
 1. It runs `rancher/k3s` as a privileged container and waits for the node.
 2. It streams images in from the local Docker cache (`docker save` into `ctr images import`), so

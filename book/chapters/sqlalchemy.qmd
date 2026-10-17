@@ -1,6 +1,6 @@
 # Sync and async, side by side
 
-![](../images/spot-1.svg){.spot fig-alt="A small isometric town on a yellow tile, joined to a blue-topped Postgres cylinder by two pipes; an elephant in a hoodie works on a laptop in front."}
+![](../images/spot-1.svg){.spot fig-alt="A small isometric town on a yellow tile, joined to a blue-topped Postgres cylinder by two pipes. An elephant in a hoodie works on a laptop in front."}
 SQLAlchemy 2.0 runs the same statements, the same models and the same results in two styles. In
 sync code each call blocks until the database answers. In async code the call is `await`ed, and the
 process can do other work while it waits. Learning to write either takes an afternoon. This chapter
@@ -10,7 +10,7 @@ is about what async buys, and where it bites.
 
 SQLAlchemy picks the database driver from the URL. psycopg 3 implements both the blocking and the
 asyncio interfaces, so one `DATABASE_URL` can serve a sync engine for scripts and migrations and an
-async engine for the web app:
+async engine for the web app. The two engines are created like this:
 
 ```python
 from sqlalchemy import create_engine
@@ -24,7 +24,7 @@ async_engine = create_async_engine(url)  # FastAPI
 With `postgresql+asyncpg://` only the async engine would work, and with `psycopg2` only the sync
 one. That is why the lab uses psycopg by default.
 
-Most of the code is the same in both styles. The table lists what differs:
+Most of the code is the same in both styles, and the table lists what differs.
 
 | | sync | async |
 |---|---|---|
@@ -41,8 +41,8 @@ Only the round trip is awaited. `await conn.execute(...)` fetches the rows, and 
 ## The lazy-loading trap
 
 A lazy load is a query that SQLAlchemy fires when you touch a relationship attribute that has not
-been loaded yet. In `author.notes` there is nowhere to put an `await`. Rather than block the event
-loop, the async session raises an error:
+been loaded yet. In `author.notes` there is nowhere to put an `await`, so rather than block the
+event loop, the async session raises an error like this one.
 
 ```python
 author = (await session.execute(select(Author))).scalars().first()
@@ -55,11 +55,12 @@ you need with `selectinload(Author.notes)`. Load it explicitly with
 `await session.refresh(author, ["notes"])`. Or add `AsyncAttrs` to the model and write
 `await author.awaitable_attrs.notes`.
 
-## What async buys: overlapping waits
+## What async buys {#what-async-buys-overlapping-waits}
 
-A single query is not faster async. What changes is what the process does while the database is
-busy. Ten queries that each spend 200 ms on the server take about 2 s one after another. Under
-`asyncio.gather`, with a pooled connection for each, they take about 200 ms. A thread pool gets the
+Async lets the waits of several queries overlap, but a single query is not faster async. What
+changes is what the process does while the database is busy. Ten queries that each spend 200 ms on
+the server take about 2 s one after another. Under `asyncio.gather`, with a pooled connection for
+each, they take about 200 ms. A thread pool gets the
 same overlap, at the price of one thread per query.
 
 The connection pool sets the ceiling. `create_async_engine` defaults to `pool_size=5` and
@@ -85,14 +86,15 @@ documentation field as the HNSW walk returns. Run it live to orbit the scene, or
 
 The async plate finishes while the sync one is still working through its queue, and the two wall
 times in the corner show by how much. Each backend on the async plate is a separate Postgres
-process, because Postgres starts one process per connection. That is the cost of the trade:
-concurrency on the client is paid for in connections on the server, and [PgBouncer](pgbouncer.qmd)
+process, because Postgres starts one process per connection. That is the cost of the trade, because
+concurrency on the client is paid for in connections on the server. [PgBouncer](pgbouncer.qmd)
 exists to manage that cost.
 
 ## Sync code from async code
 
 pandas, Alembic and much older code want a sync connection. Inside async code, `run_sync` hands
-them one that is bridged onto the async connection, so a second engine is not needed:
+them one that is bridged onto the async connection, so a second engine is not needed. For example,
+pandas can read a query result through it.
 
 ```python
 async with async_engine.connect() as conn:
@@ -101,17 +103,16 @@ async with async_engine.connect() as conn:
 
 ## Which one to use
 
-- **Scripts, notebooks, batch jobs and migrations**: sync. Every library works, and stack traces
-  are simpler.
-- **Web services, and anything that waits on many databases or APIs at once**: async, with eager
-  loading, `expire_on_commit=False`, and a pool sized for your concurrency.
-- **A mixed code base**: one driver (psycopg 3), one URL, both engines, and `run_sync` where the two
-  meet.
+Use sync for scripts, notebooks, batch jobs and migrations. Every library works with it, and stack
+traces are simpler. Use async for web services and for anything that waits on many databases or
+APIs at once, with eager loading, `expire_on_commit=False` and a pool sized for your concurrency. A
+mixed code base can use one driver (psycopg 3), one URL and both engines, with `run_sync` where the
+two meet.
 
 ::: {.callout-note}
 ## In the lab
 
 `src/db.py` is the async side of that setup. `src/settings.py` checks every server URL with
 pydantic-settings, so a malformed URL fails when the module is imported, not at the first query.
-Notebook: [Sync vs async](../notebooks/sync_vs_async.ipynb).
+The [Sync vs async notebook](../notebooks/sync_vs_async.ipynb) runs every example in this chapter.
 :::

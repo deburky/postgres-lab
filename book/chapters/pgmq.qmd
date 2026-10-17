@@ -1,8 +1,8 @@
 # A message queue as an extension
 
 [pgmq](https://github.com/pgmq/pgmq) is a message queue in the style of Amazon SQS, written as a
-Postgres extension in plain SQL. A queue is a table, and every operation is a SQL function:
-`pgmq.send`, `pgmq.read`, `pgmq.delete`, `pgmq.archive`. Because there is no client library and no
+Postgres extension in plain SQL. A queue is a table, and every operation is a SQL function, such as
+`pgmq.send`, `pgmq.read`, `pgmq.delete` and `pgmq.archive`. Because there is no client library and no
 worker framework, anything that can run SQL can send or receive messages, from psql to a trigger
 to a Go service.
 
@@ -10,7 +10,7 @@ to a Go service.
 
 The idea behind pgmq is the **visibility timeout**. `read` does not mark a message as owned by a
 consumer. Instead it moves the message's `vt` timestamp into the future, and until that moment no
-other reader sees the message:
+other reader sees the message. A queue's whole life takes four calls:
 
 ```sql
 SELECT pgmq.create('jobs');
@@ -26,19 +26,19 @@ Consumer B gets nothing at first, then gets the same message 2.2 seconds later w
 
 ## At least once, and how to keep a lease
 
-Delivery is therefore **at least once**: a message can reach more than one consumer. pgmq cannot
+Delivery is therefore **at least once**, which means a message can reach more than one consumer. pgmq cannot
 tell a slow consumer from a crashed one, so long work must call `set_vt` to extend its lease (the
 time it keeps the message hidden). In the notebook, a 3 second job on a 2 second timeout loses its
 message to a second consumer. The same job keeps the message when it extends the lease every half
 second.
 
-`pop` reads and deletes a message in one statement. It gives at-most-once delivery instead: a
+`pop` reads and deletes a message in one statement, which gives at-most-once delivery instead. A
 message that a consumer pops and then fails on is gone.
 
 ## Retries from two columns
 
 pgmq has no retry policy of its own. It has `read_ct` and `set_vt`, and those two are enough to
-write one:
+write one, as in this consumer loop:
 
 ```python
 for msg_id, read_ct, message in read_batch():
@@ -70,24 +70,25 @@ second attempt, and the broken one lands in the dead-letter queue after its thir
   one at a time. A plain `read` on the same queue ignores groups, so every consumer of that queue
   has to use the grouped functions.
 - **Topics.** `bind_topic('orders.*.paid', 'payments')` and `send_topic('orders.eu.paid', msg)`
-  route messages with RabbitMQ-style wildcards: `*` matches one word, `#` any number after a dot.
+  route messages with RabbitMQ-style wildcards. In a pattern, `*` matches one word and `#` matches
+  any number of words after a dot.
 - **Archive tables.** `pgmq.a_<name>` keeps every archived message with its `archived_at` time,
   which makes a free audit log.
 
 ## Try it here
 
 pgmq is plain SQL, so it also installs into the in-browser Postgres below. A queue called `tasks`
-starts with five messages. Click the chips in order: the second read skips the messages the first
-one hid, and the visibility timeout example brings a message back with `read_ct` 2.
+starts with five messages. If you click the chips in order, the second read skips the messages the
+first one hid, and the visibility timeout example brings a message back with `read_ct` 2.
 
 ::: {.viz .console .column-page}
 <iframe src="../viz/sql.html?lab=pgmq&embed=1" loading="lazy" title="pgmq SQL console"></iframe>
 :::
 
 ::: {.viz-caption .column-page}
-Postgres 18 compiled to WebAssembly ([PGlite](https://pglite.dev)), running in this tab: the first
-load fetches about 10 MB, then it starts in a second or two. Your edits stay in the tab, and Reset data
-starts over. [Open full screen](../viz/sql.html?lab=pgmq){target="_blank"}.
+This console runs Postgres 18 in the page, compiled to WebAssembly by [PGlite](https://pglite.dev).
+The first visit downloads about 10 MB, and after that it starts in a second or two. Your edits stay
+in this tab, and Reset data starts over. [Open full screen](../viz/sql.html?lab=pgmq){target="_blank"}.
 :::
 
 ## pgmq and pgqueuer side by side
@@ -115,5 +116,6 @@ retries, limits and schedules already written.
 ## In the lab
 
 pgmq 1.13 has no Debian package for Postgres 18 yet, so `docker/Dockerfile.pg18` builds it from
-source. It is plain SQL, installed with PGXS. Notebook: [pgmq playground](../notebooks/pgmq_playground.ipynb).
+source. It is plain SQL, installed with PGXS. The [pgmq playground](../notebooks/pgmq_playground.ipynb)
+notebook runs every step above against that server.
 :::

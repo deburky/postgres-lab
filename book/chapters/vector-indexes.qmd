@@ -1,20 +1,20 @@
 # Three ways to index a vector
 
 An index makes nearest-neighbour search fast by looking at a small part of the table instead of all
-of it. Postgres can now index a `vector` column in three ways: pgvector's **HNSW**, Timescale's
-**DiskANN** from pgvectorscale, and **PRISM** from the newer pg_vectorsearch. The first two are
+of it. Postgres can now index a `vector` column in three ways, with pgvector's **HNSW**,
+Timescale's **DiskANN** from pgvectorscale, or **PRISM** from the newer pg_vectorsearch. The first two are
 graphs that a query walks, and the third is a set of partitions that a query scans.
 
 The lab built all three on the same table and measured build time, size, latency and recall. Recall
-is the share of the true nearest neighbours that the index returns; recall@10 asks how many of the
-exact top 10 it finds.
+is the share of the true nearest neighbours that the index returns, and recall@10 counts how many of
+the exact top 10 it finds.
 
 ## The contenders
 
 **HNSW** (pgvector) is a layered proximity graph. A query enters at the sparse top layer and
 descends towards the dense bottom one, keeping `ef_search` candidates as it goes. It needs no
-training pass and inserts are cheap. Two settings trade build time for recall: `m`, the links per
-node, and `ef_construction`.
+training pass and inserts are cheap. Two settings, `m` (the links per node) and `ef_construction`,
+trade build time for recall.
 
 **DiskANN** (pgvectorscale 0.9.1) is a single flat graph, built to stay fast when it does not fit in
 memory. It keeps compressed vectors in the index (statistical binary quantization). A rescore step
@@ -24,7 +24,7 @@ then re-reads the full vectors for the best candidates.
 into `nlist` partitions, in the style of an IVF index, and each vector is stored as a RaBitQ code
 with an error bound. A query scans the `prism.nprobe` nearest partitions. It re-reads full vectors
 only for the candidates that the error bound cannot settle. PRISM indexes pgvector's column in
-place:
+place, so creating and tuning it takes three statements.
 
 ```sql
 CREATE INDEX ON demo_docs USING prism (embedding vec32_cosine_ops);  -- build after loading
@@ -34,8 +34,8 @@ SELECT * FROM prism_index_settings('demo_docs_embedding_idx');       -- what it 
 
 ## The measurement
 
-The test used 20,000 random 64-dimensional unit vectors on Postgres 18, in one run on a laptop, with
-recall@10 measured against an exact scan:
+The test used 20,000 random 64-dimensional unit vectors on Postgres 18, in one run on a laptop, and
+measured recall@10 against an exact scan.
 
 | index | build | size | best recall@10 | ms per query at best |
 |---|---|---|---|---|
@@ -48,13 +48,13 @@ matches HNSW's once every partition is probed. The automatic `nprobe` (10 here) 
 0.40, and recall rises to 0.81 at 40 and 0.93 at 80.
 
 ::: {.callout-important}
-## Read the test data, not just the table
+## Read the test data before the table
 
 Random vectors are the worst case for both quantization and partitioning. Their coordinates are
 independent, so binary codes have nothing to capture and k-means has no clusters to follow. That is
 why DiskANN stalls at 0.76 and PRISM needs every partition. Real embeddings cluster strongly, and on
-them both indexes do far better; PRISM's automatic `nprobe` aims at a recall of about 0.95. Treat
-the table as a comparison under stress, not a verdict.
+them both indexes do far better. PRISM's automatic `nprobe` aims at a recall of about 0.95. Treat
+the table as a comparison under stress rather than a verdict.
 :::
 
 ## Choosing
@@ -68,4 +68,4 @@ the table as a comparison under stress, not a verdict.
 In SQLAlchemy all three are an `Index(...)` with `postgresql_using` and `postgresql_ops`, and the
 queries do not change.
 
-Notebook: [pgvector playground](../notebooks/pgvector_playground.ipynb), section 6.
+Section 6 of the [pgvector playground](../notebooks/pgvector_playground.ipynb) notebook runs this comparison.

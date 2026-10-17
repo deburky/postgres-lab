@@ -8,7 +8,7 @@ Docker.
 [py-pglite](https://pypi.org/project/py-pglite/) starts PGlite from Python and puts a socket in
 front of it that speaks the Postgres wire protocol. psycopg and SQLAlchemy connect to that socket
 as they would to any Postgres server. It starts in about two seconds, which makes it a good fit for
-one job in particular: tests.
+running tests.
 
 ## What works
 
@@ -19,7 +19,7 @@ cannot tell that it is not talking to a server, which is the point.
 
 ## Where it stops being Postgres
 
-The notebook found four limits, and it demonstrates or documents each one:
+The notebook found four limits, and it demonstrates or documents each one.
 
 1. **One connection at a time.** PGlite serves a single user, and the bridge accepts one client.
    While the notebook was being written, a second simultaneous connection crashed psycopg, so
@@ -31,10 +31,11 @@ The notebook found four limits, and it demonstrates or documents each one:
 4. **Starting or stopping a manager kills every PGlite process on the machine**, including one that
    a notebook or another test run is using.
 
-## The real use: a test fixture
+## Using it as a test fixture
 
 The pattern is one database per test session. `create_all` runs once, and each test runs inside a
-transaction that is rolled back at the end, so every test starts from the same state:
+transaction that is rolled back at the end, so every test starts from the same state. The fixture
+looks like this:
 
 ```python
 @pytest.fixture
@@ -45,7 +46,7 @@ def session(engine):
         trans.rollback()
 ```
 
-The table below sums up when PGlite can replace a Postgres container and when it cannot:
+The table below sums up when PGlite can replace a Postgres container and when it cannot.
 
 | need | PGlite | Docker Postgres |
 |---|---|---|
@@ -54,4 +55,4 @@ The table below sums up when PGlite can replace a Postgres container and when it
 | concurrency, locks, PgBouncer, replication, timings | no | yes |
 | large payloads from Python | not through py-pglite 0.5.3 | yes |
 
-Notebook: [PGlite playground](../notebooks/pglite_playground.ipynb).
+The [PGlite playground notebook](../notebooks/pglite_playground.ipynb) shows each of these limits.

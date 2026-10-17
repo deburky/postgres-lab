@@ -9,7 +9,7 @@ book:
   title: "The World of Postgres"
   subtitle: "Adventures in a single database"
   author: "Denis Burakov"
-  description: "A field guide to Postgres as an application backend: SQLAlchemy, vectors, queues, change data capture and access as code, every claim measured in a notebook."
+  description: "How to run an application on Postgres, from SQLAlchemy and vector search to queues, change data capture and access as code. Every number in the book comes from a notebook you can run."
   site-url: https://deburky.github.io/postgres-lab/
   repo-url: https://github.com/deburky/postgres-lab
   repo-subdir: book

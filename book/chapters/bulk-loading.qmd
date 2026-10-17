@@ -29,7 +29,7 @@ The staging step explains why pgpq loses to plain binary `COPY`, even before the
 a Postgres array puts a 4-byte length in front of every element, so a `FLOAT4[]` takes twice the
 bytes of a `vector`.
 
-Binary `COPY` needs one call to teach psycopg the `vector` type, and then a row at a time:
+Binary `COPY` needs one call to teach psycopg the `vector` type, and then it writes one row at a time.
 
 ```python
 from pgvector.psycopg import register_vector
@@ -42,7 +42,7 @@ with conn.cursor() as cur, cur.copy("COPY items (title, embedding) FROM STDIN (F
 ```
 
 ::: {.callout-tip}
-## Index after, not before
+## Build the index after loading
 
 Build the HNSW index once the table is loaded. Maintaining it row by row during a load costs more
 than one build over the finished table.
@@ -50,7 +50,7 @@ than one build over the finished table.
 
 ## And back out as numpy
 
-Reading goes the other way: the same table back as an `(n, 384)` numpy array, in three ways:
+Reading goes the other way. The lab read the same table back as an `(n, 384)` numpy array in three ways.
 
 ```
  read back as numpy | seconds | rows/s |  MB/s | vs psycopg_rows

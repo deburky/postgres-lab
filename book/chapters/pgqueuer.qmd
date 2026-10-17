@@ -1,12 +1,12 @@
 # A job queue that is just a table
 
-![](../images/spot-3.svg){.spot fig-alt="Coloured job cubes waiting on a conveyor in front of three worker blocks; an elephant in overalls picks a job off the conveyor."}
+![](../images/spot-3.svg){.spot fig-alt="Coloured job cubes waiting on a conveyor in front of three worker blocks. An elephant in overalls picks a job off the conveyor."}
 A job queue lets an application hand slow work, such as fetching and embedding a web page, to
 background workers and answer the request straight away. The usual tools for this are Redis or
 RabbitMQ, a second system to run next to the database. [PgQueuer](https://github.com/janbjorge/pgqueuer)
 keeps the queue in Postgres instead, as an ordinary table with one row per job.
 
-Three Postgres features make that work:
+Three Postgres features make that work.
 
 - **`FOR UPDATE SKIP LOCKED`** lets a worker claim rows that no other worker has locked, so any
   number of workers can pull from one table without two of them getting the same job.
@@ -19,7 +19,7 @@ Three Postgres features make that work:
 
 A worker takes jobs in one short statement. It selects the oldest waiting rows with
 `FOR UPDATE SKIP LOCKED`, sets their status to `picked`, and commits. The row lock lasts only for
-that statement. While the job runs, nothing is locked: the row is just marked as `picked`.
+that statement. While the job runs, nothing is locked, and the row is only marked as `picked`.
 
 Crashes are handled by a second column. Each worker keeps a `heartbeat` column fresh while it
 works. When a job's heartbeat is older than `heartbeat_timeout` (30 s by default), the next worker
@@ -59,17 +59,18 @@ the front.
 
 ## What the library adds
 
-The table and the claim are the whole queue. On top of them, pgqueuer gives the features an
-application needs in practice:
+The table and the claim are the whole queue. On top of them, pgqueuer adds four features that an
+application needs in practice.
 
 - **Dedupe keys.** Enqueueing a key that a waiting job already has does nothing, so running the
   same ingest twice queues no extra work.
 - **Retries with backoff.** With `on_failure="hold"`, a job that runs out of attempts stays in the
   table as `failed`, where you can inspect it and requeue it with `pgq requeue`.
-- **Concurrency limits** that the database enforces across all workers, not per process.
-- **Schedules**, written as cron expressions and run by whichever worker gets there first.
+- **Concurrency limits.** The database enforces each limit across all workers, not per process.
+- **Schedules.** A schedule is a cron expression, and whichever worker gets there first runs it.
 
-The lab's `app/jobs.py` runs the documentation ingest this way, with one job per page:
+The lab's `app/jobs.py` runs the documentation ingest this way, with one job per page. This is its
+entry point and the call that enqueues the pages:
 
 ```python
 def retrying(params: EntrypointExecutorParameters) -> DatabaseRetryEntrypointExecutor:
@@ -99,5 +100,5 @@ connection busy for up to a second, and the worker's other queries wait behind i
 concurrency limit, five trivial jobs took 15 s on psycopg and 0.07 s on asyncpg.
 :::
 
-Notebook: [pgqueuer taken apart](../notebooks/pgqueuer_playground.ipynb), where the workers run as
+The [pgqueuer taken apart](../notebooks/pgqueuer_playground.ipynb) notebook runs the workers as
 asyncio tasks inside the notebook. The [next chapter](pgmq.qmd) looks at a different queue design.

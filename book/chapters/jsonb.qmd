@@ -1,15 +1,15 @@
 # Documents in a relational database
 
-Sooner or later most applications need a bit of schemaless data: attributes that differ per row,
-or a payload stored exactly as it arrived. `JSONB` lets a Postgres column hold a whole JSON
+Sooner or later most applications need a bit of schemaless data, such as attributes that differ
+per row or a payload stored exactly as it arrived. `JSONB` lets a Postgres column hold a whole JSON
 document, stored in a binary form that can be indexed, next to ordinary typed columns. That covers
 the need without a second database. The SQL takes half a dozen operators, and SQLAlchemy maps each
 of them to Python.
 
 ## Reading values out
 
-Four operators cover most reads. The first two take a key and differ in what they return: `->`
-gives back JSON, and `->>` gives back text.
+Four operators cover most reads. The first two take a key and differ in what they return, because
+`->` gives back JSON and `->>` gives back text.
 
 | SQL | SQLAlchemy | result |
 |---|---|---|
@@ -32,7 +32,7 @@ select(Event).where(Event.payload.contains({"user": {"plan": "pro"}}))
 
 The trap is negation. `payload ->> 'device' != 'web'` silently drops every row that has no `device`
 key at all. For those rows the left side is `NULL`, and `NULL != 'web'` is not true but `NULL`.
-When a missing key should count as "not web", say so in the query:
+When a missing key should count as "not web", the query has to say so, as in
 `or_(Event.payload["device"].astext != "web", ~Event.payload.has_key("device"))`.
 
 ## Arrays become rows
@@ -40,7 +40,7 @@ When a missing key should count as "not web", say so in the query:
 `jsonb_array_elements` turns one row that holds an array into one row per element. From there,
 `WHERE`, `GROUP BY` and `JOIN` work as usual. In SQLAlchemy, `.table_valued(...)` turns the function
 into something you can put in `FROM`. You then join it `ON true`, and Postgres evaluates the join
-laterally, once per row:
+laterally, once per row. In code it looks like this:
 
 ```python
 item = func.jsonb_array_elements(Event.payload["items"]).table_valued(column("value", JSONB))
@@ -63,8 +63,8 @@ changed.
 ::: {.callout-tip}
 ## When JSONB, when columns
 
-Use columns for anything you filter, join or aggregate on routinely. Use JSONB for the long tail:
-attributes that differ per row, payloads you store as received, settings. A GIN index with
+Use columns for anything you filter, join or aggregate on routinely. Use JSONB for the long tail,
+such as attributes that differ per row, payloads you store as received, and settings. A GIN index with
 `jsonb_path_ops` makes containment fast, but no index makes a JSONB key as cheap to query as a
 typed column.
 :::
@@ -80,10 +80,10 @@ the SQL and press Run to try your own.
 :::
 
 ::: {.viz-caption .column-page}
-Postgres 18 compiled to WebAssembly ([PGlite](https://pglite.dev)), running in this tab: the first
-load fetches about 10 MB, then it starts in a second or two. Your edits stay in the tab, and Reset data
-starts over. [Open full screen](../viz/sql.html?lab=jsonb){target="_blank"}.
+This console runs Postgres 18 in the page, compiled to WebAssembly by [PGlite](https://pglite.dev).
+The first visit downloads about 10 MB, and after that it starts in a second or two. Your edits stay
+in this tab, and Reset data starts over. [Open full screen](../viz/sql.html?lab=jsonb){target="_blank"}.
 :::
 
-Notebook: [JSONB playground](../notebooks/jsonb_playground.ipynb), with every query returned as a
-DataFrame and the compiled SQL beside it.
+The [JSONB playground notebook](../notebooks/jsonb_playground.ipynb) returns every query as a
+DataFrame and shows the compiled SQL beside it.

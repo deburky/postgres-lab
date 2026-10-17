@@ -1,6 +1,6 @@
-# Postgres to Postgres: change data capture
+# Change data capture from Postgres to Postgres
 
-![](../images/spot-4.svg){.spot fig-alt="Two cylinders, Postgres and a warehouse, joined by a pipe with rows travelling along it; an elephant wheels cubes of data between them."}
+![](../images/spot-4.svg){.spot fig-alt="Two cylinders, Postgres and a warehouse, joined by a pipe with rows travelling along it. An elephant wheels cubes of data between them."}
 Change data capture (CDC) means following every change to a database as it is committed, so that
 another system stays in step. It is usually drawn as Postgres, then Debezium, then Kafka, then the
 target. The first arrow is the interesting one, and Postgres can follow it on its own. The source
@@ -12,8 +12,8 @@ write it.
 
 ## Publish, subscribe
 
-The source needs one setting, `wal_level = logical` (on RDS, `rds.logical_replication = 1`). Then
-one statement on each side sets up the stream:
+The source needs one setting, `wal_level = logical` (on RDS, `rds.logical_replication = 1`). After
+that, one statement on each side sets up the stream:
 
 ```sql
 -- on the source
@@ -44,8 +44,8 @@ The notebook reproduces each of these failures.
 A slot that nobody reads never advances, and Postgres cannot recycle WAL past it. With the
 subscription disabled and 20,000 rows written, 7 MB of WAL stayed pinned on the source until the
 subscription was enabled again. In production, this is how a forgotten Debezium connector fills a
-disk. `max_slot_wal_keep_size` caps the damage: past the cap, the slot is invalidated and the
-subscriber has to start over, and losing a slot beats losing the primary.
+disk. `max_slot_wal_keep_size` caps the damage. Past the cap, the slot is invalidated and the
+subscriber has to start over, which is better than losing the primary.
 
 **DDL breaks the stream.** Add a column on the source and write a row. The apply worker on the
 replica cannot fit that row into its table, so it logs an error and retries forever, and nothing
@@ -53,17 +53,18 @@ after that row arrives. Adding the column on the replica lets the stream resume.
 change the subscriber first and the publisher second, because an extra column on the replica does
 no harm and a missing one stops everything.
 
-**Conflicts.** Nothing makes the replica read-only. A row written directly on the replica collides
+**Conflicts stop the apply worker.** Nothing makes the replica read-only. A row written directly on the replica collides
 with the same key arriving from the source, and the apply worker stops on the unique violation.
 Deleting the row, or running `ALTER SUBSCRIPTION ... SKIP (lsn = ...)`, lets it resume. Postgres 18
 counts conflicts of each type in `pg_stat_subscription_stats`.
 
 ## What else is not replicated
 
-- **Sequences.** The replica's counters never move, so reset them with `setval` after a failover.
-- **Slots across a failover**, before Postgres 17, which adds failover slots.
+- Sequences are not replicated. The replica's counters never move, so reset them with `setval` after
+  a failover.
+- Before Postgres 17, slots do not survive a failover. Postgres 17 adds failover slots.
 
-Since Postgres 15, publications also take row filters and column lists:
+Since Postgres 15, publications also take row filters and column lists, as in
 `CREATE PUBLICATION p FOR TABLE events (id, kind) WHERE (kind = 'purchase')`.
 
 ::: {.callout-tip}
@@ -74,5 +75,5 @@ Debezium when there are several consumers or the target is not Postgres. For an 
 that can read the stream itself, see the [next chapter](doris.qmd).
 :::
 
-Notebook: [Logical replication](../notebooks/logical_replication.ipynb), against a second pg16
-started with `just db replica`.
+The [Logical replication](../notebooks/logical_replication.ipynb) notebook reproduces every case above
+against a second pg16, started with `just db replica`.

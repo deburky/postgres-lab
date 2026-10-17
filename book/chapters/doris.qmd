@@ -1,10 +1,10 @@
 # Postgres to Apache Doris
 
-[Apache Doris](https://doris.apache.org/) is a columnar analytical database: it stores each column
+[Apache Doris](https://doris.apache.org/) is a columnar analytical database. It stores each column
 separately, which makes scans and aggregates over many rows fast. It speaks the MySQL protocol.
 Since version 4.1 it can follow Postgres by itself. One statement creates the target tables, copies
 the existing rows and then streams changes from a replication slot, with no Kafka or Debezium to
-deploy in between:
+deploy in between. This is the statement the lab ran:
 
 ```sql
 CREATE JOB pg_mirror_job
@@ -25,7 +25,7 @@ TO DATABASE pg_mirror ("table.create.properties.replication_num" = "1");
 ## What the lab found
 
 The lab runs one Doris frontend and one backend next to pg16, and points a job at the project's
-tables. On Doris 4.1.4:
+tables. The table lists what it found on Doris 4.1.4.
 
 | | |
 |---|---|
@@ -43,17 +43,18 @@ own.
 ## The vector problem
 
 Doris's CDC client is Debezium's Postgres connector, and Debezium has no converter for pgvector's
-`vector` type. The column does not fail; it arrives as NULL. The notebook verifies a workaround: a
-trigger on the source keeps a `real[]` copy of each embedding. That copy arrives as `ARRAY<FLOAT>`,
+`vector` type. The column does not fail. It arrives as NULL instead. The notebook verifies a
+workaround, in which a trigger on the source keeps a `real[]` copy of each embedding. That copy arrives as `ARRAY<FLOAT>`,
 and Doris's own `cosine_distance` then returns the same top five as pgvector.
 
 ::: {.callout-warning}
 ## Sized for a server
 
 The images are large (4 GB for the frontend, 9 GB for the backend), and their defaults assume a
-dedicated machine: an 8 GB heap, and a backend sized to 90% of memory. On Docker Desktop that ends
+dedicated machine, with an 8 GB heap and a backend sized to 90% of memory. On Docker Desktop that ends
 in `MEM_LIMIT_EXCEEDED`. The lab's compose file caps both (`DORIS_FE_HEAP`, `DORIS_BE_MEM`) so they
 fit beside the other containers.
 :::
 
-Notebook: [Doris CDC](../notebooks/doris_cdc.ipynb), started with `just db doris`.
+The [Doris CDC](../notebooks/doris_cdc.ipynb) notebook runs every step above against servers started
+with `just db doris`.

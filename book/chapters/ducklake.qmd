@@ -3,7 +3,8 @@
 Analytical queries, the kind that scan millions of rows to sum a few columns, run slowly on the
 row tables an application uses. The previous chapter answered that by copying rows out of Postgres
 into a columnar database. [pg_ducklake](https://github.com/relytcloud/pg_ducklake) takes the
-opposite route and brings the columnar table into Postgres:
+opposite route and brings the columnar table into Postgres. One statement makes a columnar copy of a
+table:
 
 ```sql
 CREATE TABLE events_lake USING ducklake AS SELECT * FROM events;
@@ -58,7 +59,7 @@ added a 14 kB delete file and a 19 kB file with the updated rows.
 ## Snapshots, time travel and a change feed
 
 Every commit is a snapshot in the catalog, with a note of what it changed. Any snapshot that has
-not been expired can be read back:
+not been expired can be read back, and two functions do the reading:
 
 ```sql
 SELECT count(*) FROM ducklake.time_travel('events_lake'::regclass, 5) t;
@@ -81,7 +82,7 @@ exist`. Afterwards, that connection's DuckDB has lost its catalog until it recon
 
 `CALL ducklake.set_partition('events_part'::regclass, 'device')` makes later writes split their
 files by device, so that a filter on device can skip whole files. On a local disk at this size it
-bought nothing: 28 ms for the partitioned table against 30 ms for the single file. Reading one
+bought nothing, with 28 ms for the partitioned table against 30 ms for the single file. Reading one
 compressed column of a 78 MB file is already cheap, and the row-group statistics inside the file do
 part of a partition's job.
 
@@ -91,7 +92,7 @@ Partitions pay off on object storage, where a skipped file is a skipped download
 ## Joining rows and columns
 
 A lake table joins any Postgres table in plain SQL. DuckDB plans the whole statement and reads the
-heap side through its own Postgres scan (the plan, condensed):
+heap side through its own Postgres scan. A condensed version of the plan shows both scans:
 
 ```text
 HASH_JOIN  user_id = user_id
@@ -109,4 +110,5 @@ queries is still one server, so heavy analytics there compete with the applicati
 memory.
 :::
 
-Notebook: [pg_ducklake playground](../notebooks/pg_ducklake_playground.ipynb).
+The [pg_ducklake playground](../notebooks/pg_ducklake_playground.ipynb) notebook measures every
+number in this chapter.
