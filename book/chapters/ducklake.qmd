@@ -97,8 +97,3 @@ out on its own hardware and keeps analytical load off the primary. A Postgres se
 queries is still one server, so heavy analytics there compete with the application for CPU and
 memory.
 :::
-
-::: {.chapter-notebook}
-The measurements come from the [pg_ducklake notebook](../notebooks/pg_ducklake_playground.ipynb), run
-on the lab's `ducklake` server (the upstream image `pgducklake/pgducklake:18-v1.0.2`, Postgres 18.4).
-:::

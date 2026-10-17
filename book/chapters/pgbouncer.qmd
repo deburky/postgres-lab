@@ -74,7 +74,3 @@ asyncpg.
 | hundreds of idle connections (dashboards, queue workers) | yes |
 | protecting Postgres from bursts | yes, as a limiter |
 | one monolith with a well-sized SQLAlchemy pool | little; it already reuses connections |
-
-::: {.chapter-notebook}
-The measurements come from the [PgBouncer notebook](../notebooks/pgbouncer_playground.ipynb).
-:::

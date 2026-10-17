@@ -116,8 +116,3 @@ retries, limits and schedules already written.
 pgmq 1.13 has no Debian package for Postgres 18 yet, so `docker/Dockerfile.pg18` builds it from
 source. It is plain SQL, installed with PGXS.
 :::
-
-::: {.chapter-notebook}
-The measurements come from the [pgmq notebook](../notebooks/pgmq_playground.ipynb), run against the
-pg18 server.
-:::

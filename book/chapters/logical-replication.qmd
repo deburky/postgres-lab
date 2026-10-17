@@ -67,8 +67,3 @@ Use logical replication when the target is Postgres and the data needs no transf
 Debezium when there are several consumers or the target is not Postgres. For an analytical target
 that reads the stream itself, Apache Doris has [built-in CDC](doris.qmd).
 :::
-
-::: {.chapter-notebook}
-The measurements come from the [logical replication notebook](../notebooks/logical_replication.ipynb),
-run against a second pg16 started with `just db replica`.
-:::

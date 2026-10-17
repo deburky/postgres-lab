@@ -67,8 +67,3 @@ Binary `COPY ... TO STDOUT`, decoded in one numpy pass, is the fastest. [ADBC](h
 does not know `vector` either, so the query casts to `real[]`, which arrives as `list<float>` and
 pays the array overhead again. ADBC is still the one to use when the destination is Arrow anyway, as
 with Polars, DuckDB or Parquet.
-
-::: {.chapter-notebook}
-The comparison runs from `src/examples/bench/pg_copy.py`, and `src/vecio.py` keeps the binary decoder
-and the ADBC reader for reuse.
-:::

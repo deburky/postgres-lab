@@ -7,12 +7,6 @@ such as Redis or RabbitMQ for a queue, a separate store for vector search, or an
 change data. This book tests how much of that second system one Postgres can replace. Each chapter
 gives the database one of those jobs, measures what it costs, and says where it falls short.
 
-The measurements come from one repository, [postgres-lab](https://github.com/deburky/postgres-lab),
-which runs on a laptop. Its Docker setup brings up Postgres 16 and 18 with pgvector, a replica,
-PgBouncer, Apache Doris and a Postgres with pg_ducklake, next to a small FastAPI app that searches
-the SQLAlchemy documentation. The measurements come from its notebooks and benchmark scripts, and
-the appendix renders each notebook with its outputs.
-
 ## The map
 
 ![](images/world.svg){.column-body-outset .hero fig-alt="An isometric ink drawing of the book as a small world. A Postgres cylinder stands at the centre of a plate, and five districts around it stand for Python, Search, Queues, Moving data, and Access and operations."}

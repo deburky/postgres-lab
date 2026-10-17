@@ -102,8 +102,3 @@ HNSW index.
 extractive summary from their sentences, so nothing is generated and each answer carries its
 sources. Retrieval takes about 20 ms, and the [sync and async scene](sqlalchemy.qmd#watching-it-happen)
 shows those queries in flight, with the chunks laid out by a PCA of their real embeddings.
-
-::: {.chapter-notebook}
-The measurements come from the [pgvector notebook](../notebooks/pgvector_playground.ipynb), run on
-pg18, which also holds the index comparison of the next chapter.
-:::

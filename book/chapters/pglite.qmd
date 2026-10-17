@@ -48,7 +48,3 @@ Against a Postgres container, PGlite compares like this:
 | SQL, JSONB and pgvector parity | yes, the same Postgres core | yes |
 | concurrency, locks, PgBouncer, replication, timings | no | yes |
 | large payloads from Python | not through py-pglite 0.5.3 | yes |
-
-::: {.chapter-notebook}
-The limits come from the [PGlite notebook](../notebooks/pglite_playground.ipynb).
-:::

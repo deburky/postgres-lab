@@ -80,8 +80,3 @@ This console runs Postgres 18 in the page, compiled to WebAssembly by [PGlite](h
 The first visit downloads about 10 MB, and after that it starts in a second or two. Your edits stay
 in this tab, and Reset data starts over. [Open full screen](../viz/sql.html?lab=jsonb){target="_blank"}.
 :::
-
-::: {.chapter-notebook}
-The queries come from the [JSONB notebook](../notebooks/jsonb_playground.ipynb), which returns each
-one as a DataFrame next to its compiled SQL.
-:::

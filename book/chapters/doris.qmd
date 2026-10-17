@@ -55,8 +55,3 @@ dedicated machine, with an 8 GB heap and a backend sized to 90% of memory. On Do
 in `MEM_LIMIT_EXCEEDED`. The lab's compose file caps both (`DORIS_FE_HEAP`, `DORIS_BE_MEM`) so they
 fit beside the other containers.
 :::
-
-::: {.chapter-notebook}
-The measurements come from the [Doris CDC notebook](../notebooks/doris_cdc.ipynb), run against
-servers started with `just db doris`.
-:::

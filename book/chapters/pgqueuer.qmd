@@ -92,8 +92,3 @@ pgqueuer can run on psycopg or asyncpg. On psycopg, a worker waiting for notific
 connection busy for up to a second, and the worker's other queries wait behind it. With a
 concurrency limit, five trivial jobs took 15 s on psycopg and 0.07 s on asyncpg.
 :::
-
-::: {.chapter-notebook}
-The measurements come from the [pgqueuer notebook](../notebooks/pgqueuer_playground.ipynb), which
-runs the workers as asyncio tasks.
-:::

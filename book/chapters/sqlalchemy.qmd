@@ -105,7 +105,3 @@ the two meet.
 `src/db.py` is the async side of that setup. `src/settings.py` checks every server URL with
 pydantic-settings, so a malformed URL fails at import time, before the first query runs.
 :::
-
-::: {.chapter-notebook}
-The examples and timings come from the [sync vs async notebook](../notebooks/sync_vs_async.ipynb).
-:::

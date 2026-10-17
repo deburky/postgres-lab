@@ -50,8 +50,3 @@ docker-py:
 A cold start takes about 40 seconds, and about 10 when the container already exists. When the
 pgvector notebook is pointed at `k3s-pg16` it calls the script itself, so the Kubernetes run works on
 a clean machine that has only Docker installed.
-
-::: {.chapter-notebook}
-The concurrency tests come from the [pgvector notebook](../notebooks/pgvector_playground.ipynb), run
-against a cluster with `just k8s-test`.
-:::
