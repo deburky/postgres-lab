@@ -7,14 +7,14 @@ inside a JavaScript process with no daemon, port or Docker, and
 socket that speaks the Postgres wire protocol. psycopg and SQLAlchemy connect to that socket as they
 would to any server, which makes PGlite a good database for tests and a poor one for anything else.
 
-## The lab's models run unchanged
+## Compatibility
 
 `Base.metadata.create_all` creates the `documents` table with its `Vector(1536)` column and the
 JSONB `events` table, because PGlite bundles pgvector. Distances, nearest-neighbor queries and even
 an HNSW index work inside WebAssembly, and the code under test cannot tell that no server is
 involved.
 
-## Where it stops being Postgres
+## Limitations
 
 The notebook demonstrates or documents each of these limits:
 
@@ -26,7 +26,7 @@ The notebook demonstrates or documents each of these limits:
 - Starting or stopping a manager kills every PGlite process on the machine, including one that a
   notebook or another test run is using.
 
-## One database per test session
+## Test databases
 
 `create_all` runs once per test session, and each test runs inside a transaction that is rolled back
 at the end, so every test starts from the same state:

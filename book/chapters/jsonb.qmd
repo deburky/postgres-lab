@@ -18,7 +18,7 @@ reads as SQL `NULL`, which quietly changes what a negated filter returns.
 
 Each of these returns `NULL` when the key is missing.
 
-## Containment does most of the filtering
+## Containment queries
 
 Most filters use containment, `@>`, which asks whether the document includes a given fragment and
 can use a GIN index:
@@ -27,14 +27,14 @@ can use a GIN index:
 select(Event).where(Event.payload.contains({"user": {"plan": "pro"}}))
 ```
 
-## Negation drops the rows without the key
+## Negation and missing keys
 
 Negation is where `NULL` bites. `payload ->> 'device' != 'web'` drops every row that has no
 `device` key, because for those rows the comparison is `NULL != 'web'`, which is `NULL` rather than
 true. When a missing key should count as "not web", the query has to say so, as in
 `or_(Event.payload["device"].astext != "web", ~Event.payload.has_key("device"))`.
 
-## Arrays become rows
+## Unnesting arrays
 
 `jsonb_array_elements` turns one row that holds an array into one row per element, after which
 `WHERE`, `GROUP BY` and `JOIN` work as usual. In SQLAlchemy, `.table_valued(...)` makes the function
@@ -58,7 +58,7 @@ For updates, `||` merges two documents, `-` removes a key, `#-` removes a path, 
 changed.
 
 ::: {.callout-tip}
-## When JSONB, when columns
+## JSONB or columns
 
 Use columns for anything you filter, join or aggregate on routinely, and JSONB for the long tail of
 per-row attributes, payloads stored as received, and settings. A GIN index with `jsonb_path_ops`

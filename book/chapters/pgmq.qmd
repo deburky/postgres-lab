@@ -6,7 +6,7 @@ whose consumer crashes reappears. In the lab, a message read with a 2 second tim
 later with `read_ct` 2. Every operation is a SQL function, so anything that can run SQL can send or
 receive, from psql to a trigger to a Go service.
 
-## A read hides the message
+## Visibility timeout
 
 `read` moves the message's `vt` timestamp into the future, and until that moment no other reader
 sees it. A queue's whole life takes four calls:
@@ -22,9 +22,9 @@ A consumer that finishes its work deletes or archives the message, and one that 
 nothing at all. When `vt` passes the message is visible again, with `read_ct` counting the new
 attempt.
 
-## Delivery is at least once
+## Delivery guarantees
 
-A message can therefore reach more than one consumer. pgmq cannot tell a slow consumer from a crashed one, so long
+Delivery is at least once, so a message can reach more than one consumer. pgmq cannot tell a slow consumer from a crashed one, so long
 work must call `set_vt` to extend its lease (the time it keeps the message hidden). In the notebook,
 a 3 second job on a 2 second timeout loses its message to a second consumer, and the same job keeps
 it when it extends the lease every half second.
@@ -32,7 +32,7 @@ it when it extends the lease every half second.
 `pop` reads and deletes a message in one statement, which gives at-most-once delivery instead. A
 message that a consumer pops and then fails on is gone.
 
-## Retries from two columns
+## Retries
 
 pgmq has no retry policy of its own, but `read_ct` and `set_vt` are enough to write one:
 
@@ -53,7 +53,7 @@ for msg_id, read_ct, message in read_batch():
 The notebook runs this loop against a flaky page and a broken one. The flaky page succeeds on its
 second attempt, and the broken one lands in the dead-letter queue after its third.
 
-## Many consumers, and waking them up
+## Consumers and notifications
 
 `read` claims messages with `FOR UPDATE SKIP LOCKED` inside one `UPDATE`, so four threads reading
 400 messages took exactly 100 each, none twice, in 0.12 s. Consumers can wait inside Postgres with
@@ -89,7 +89,7 @@ The first visit downloads about 10 MB, and after that it starts in a second or t
 in this tab, and Reset data starts over. [Open full screen](../viz/sql.html?lab=pgmq){target="_blank"}.
 :::
 
-## pgmq and pgqueuer side by side
+## pgmq and pgqueuer compared
 
 Both claim work with `FOR UPDATE SKIP LOCKED`, and neither holds a lock while the work runs. They
 differ in how a claim expires and in where the logic lives. In pgmq the claim is a timestamp that

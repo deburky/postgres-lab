@@ -9,19 +9,19 @@ enqueued in the same transaction as the data it refers to exists only if that da
 the same job, and a trigger that calls `NOTIFY` on every insert wakes idle workers within
 milliseconds, so no worker polls.
 
-## A claim holds its lock for one statement
+## Claiming a job
 
 A worker claims jobs in one short statement that selects the oldest waiting rows with
 `FOR UPDATE SKIP LOCKED`, sets their status to `picked`, and commits. The row lock lasts only for
 that statement, so a running job holds no lock and is marked only by its status.
 
-## A stale heartbeat frees the job
+## Heartbeats and stale jobs
 
 Crash recovery uses a heartbeat in place of a lock. Each worker keeps `heartbeat` fresh while it
 works, and once a job's heartbeat is older than `heartbeat_timeout` (30 s by default) the next worker
 looking for jobs takes it over, so a crashed worker's jobs come back on their own.
 
-## Watching a real run
+## A sample run
 
 The scene below replays runs recorded by the lab's `POST /queue/trace` endpoint, which starts
 pgqueuer workers on their own connections, enqueues jobs, and records each insert, notification and
@@ -52,7 +52,7 @@ row, and it drops into the `pgqueuer_log` strip at the front.
 | Retries | 30% of attempts fail. Peach rows wait out a delay that doubles before each new attempt. |
 | Priority | One worker, one job at a time. Tall rows (high priority) go first, whatever order they arrived in. |
 
-## What pgqueuer adds to the table
+## pgqueuer features
 
 The table and the claim are the whole queue. The library adds what an application needs around
 them:
@@ -86,7 +86,7 @@ With this setup, two workers ingest all 20 pages (407 chunks) in about 18 s, mos
 loading the embedding model.
 
 ::: {.callout-warning}
-## Use asyncpg for the workers
+## Driver choice
 
 pgqueuer can run on psycopg or asyncpg. On psycopg, a worker waiting for notifications keeps its
 connection busy for up to a second, and the worker's other queries wait behind it. With a

@@ -22,7 +22,7 @@ FROM POSTGRES (
 TO DATABASE pg_mirror ("table.create.properties.replication_num" = "1");
 ```
 
-## Changes arrive in seconds, schema changes included
+## Replication latency and schema changes
 
 The lab runs one Doris frontend and one backend next to pg16 and points a job at the project's
 tables. On Doris 4.1.4 it found:
@@ -40,7 +40,7 @@ Against [logical replication](logical-replication.qmd), the trade is latency for
 Changes arrive in seconds instead of milliseconds, and schema changes come across on their own where
 Postgres to Postgres stops the stream.
 
-## Vectors arrive as NULL
+## Vector columns
 
 Doris's CDC client is Debezium's Postgres connector, which has no converter for pgvector's `vector`
 type, so the column arrives as NULL instead of failing. The workaround the notebook verifies is a
@@ -48,7 +48,7 @@ trigger on the source that keeps a `real[]` copy of each embedding. That copy ar
 `ARRAY<FLOAT>`, and Doris's own `cosine_distance` then returns the same top five as pgvector.
 
 ::: {.callout-warning}
-## Sized for a server
+## Resource requirements
 
 The images are large (4 GB for the frontend, 9 GB for the backend), and their defaults assume a
 dedicated machine, with an 8 GB heap and a backend sized to 90% of memory. On Docker Desktop that ends

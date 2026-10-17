@@ -7,7 +7,7 @@ recall, while DiskANN stalled at 0.76. Random vectors are the worst case for Dis
 these numbers rank the indexes under stress. On real embeddings, which cluster strongly, both should
 do better, though the lab did not measure that.
 
-## How each index searches
+## Index designs
 
 **HNSW** (pgvector) is a layered proximity graph. A query enters at the sparse top layer and
 descends towards the dense bottom one, keeping `ef_search` candidates as it goes, so it needs no
@@ -30,7 +30,7 @@ SET prism.nprobe = 40;                                               -- 0 = auto
 SELECT * FROM prism_index_settings('demo_docs_embedding_idx');       -- what it chose, and why
 ```
 
-## On random vectors, PRISM builds nine times faster
+## Build time and recall
 
 The test ran once on a laptop, on Postgres 18, and measured recall@10 (how many of the exact top 10
 the index returns) against an exact scan:
@@ -45,7 +45,7 @@ PRISM's recall nearly matches HNSW's once every partition is probed. The automat
 here) reaches only about 0.40, and recall rises to 0.81 at 40 and 0.93 at 80.
 
 ::: {.callout-important}
-## Read the test data before the table
+## The test data
 
 Random vectors are the worst case for both quantization and partitioning. Their coordinates are
 independent, so binary codes have nothing to capture and k-means has no clusters to follow. That is
@@ -53,7 +53,7 @@ why DiskANN stalls at 0.76 and PRISM needs every partition. Real embeddings clus
 them both indexes should do far better, though the lab did not measure that. PRISM's automatic `nprobe` aims at a recall of about 0.95.
 :::
 
-## HNSW is the default
+## Choosing an index
 
 Use HNSW unless something rules it out, since it needs no training, is mature, and gives good
 recall at any size that fits in memory. DiskANN suits an index that will not fit in RAM, if the

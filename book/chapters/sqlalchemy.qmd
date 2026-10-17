@@ -6,7 +6,7 @@ overlap. Ten queries that each spend 200 ms on the server take about 2 s one aft
 about 200 ms under `asyncio.gather`, while each query on its own runs no faster. The price is a
 lazy-loading error that sync code never raises, and a server connection for every query in flight.
 
-## One driver serves both engines
+## Drivers and engines
 
 psycopg 3 implements both the blocking and the asyncio interfaces, so one `DATABASE_URL` can serve a
 sync engine for scripts and migrations and an async engine for the web app:
@@ -35,7 +35,7 @@ one, which is why the lab uses psycopg by default. Most of the code is the same 
 Only the round trip is awaited. `await conn.execute(...)` fetches the rows, and `.one()`, `.all()`
 or `.scalars()` afterwards read them from memory.
 
-## Lazy loading raises in async code
+## Lazy loading in async code
 
 Touching a relationship that has not been loaded makes SQLAlchemy fire a query, and in
 `author.notes` there is nowhere to put the `await`. Rather than block the event loop, the async
@@ -52,7 +52,7 @@ always created with `expire_on_commit=False`. The best way out is to eager-load 
 `await session.refresh(author, ["notes"])`, or add `AsyncAttrs` to the model and write
 `await author.awaitable_attrs.notes`.
 
-## The pool sets the ceiling {#what-async-buys-overlapping-waits}
+## Pool size and concurrency {#what-async-buys-overlapping-waits}
 
 Overlap needs a connection for each query in flight. `create_async_engine` defaults to
 `pool_size=5` and `max_overflow=10`, which lets 15 queries overlap while the 16th waits for a free
@@ -60,7 +60,7 @@ connection. A thread pool gets the same overlap at the price of one thread per q
 database does the same total work and only the client stops idling, so when the bottleneck is the
 database's CPU, async changes nothing.
 
-## Watching it happen
+## A timed run {#watching-it-happen}
 
 The lab's app answers questions about the SQLAlchemy documentation with pgvector, and its
 `POST /trace` endpoint answers the same questions twice with tracing on. The sync run takes them one
@@ -91,7 +91,7 @@ async with async_engine.connect() as conn:
     df = await conn.run_sync(lambda c: pd.read_sql("SELECT * FROM events", c))
 ```
 
-## Which one to use
+## Choosing sync or async
 
 Use sync for scripts, notebooks, batch jobs and migrations, where every library works and stack
 traces are simpler. Use async for web services and for anything that waits on many databases or

@@ -32,7 +32,7 @@ just k8s-test kind   # the pgvector notebook against the cluster
 The benchmark gives the same result on either cluster. Pick kind for stock Kubernetes, and k3d for a
 cluster that is small and fast to create.
 
-## k3s from Python, with no cluster tool at all
+## k3s from Python
 
 Docker Desktop's own Kubernetes can only be switched on in its settings, and kind's node needs
 kubeadm to run inside it, so neither can be started from the Docker SDK (docker-py). k3s can,

@@ -5,7 +5,7 @@ Binary `COPY` loaded 50,000 rows of 384-dimension vectors in 0.56 s, twenty time
 every float into text and back, and pgpq pays for a Postgres array on the way. The same
 holds in reverse, where binary `COPY` reads the table back into numpy faster than the alternatives.
 
-## Loading 50,000 vectors
+## Load methods
 
 ```
     method   | seconds | rows/s |  MB/s | vs orm
@@ -45,13 +45,13 @@ with conn.cursor() as cur, cur.copy("COPY items (title, embedding) FROM STDIN (F
 ```
 
 ::: {.callout-tip}
-## Build the index after loading
+## Index build order
 
 Build the HNSW index once the table is loaded. Maintaining it row by row during a load costs more
 than one build over the finished table.
 :::
 
-## Reading back, binary COPY wins again
+## Reading vectors back
 
 The lab read the same table back as an `(n, 384)` numpy array in three ways:
 

@@ -16,7 +16,7 @@ database. Queries that touch it run in DuckDB, which the extension runs inside t
 so one database can hold row tables for the application and column tables for analytics, and one
 query can join them.
 
-## Columns win scans, rows win lookups
+## Scans and lookups
 
 The notebook builds the same table twice, as an ordinary heap with a primary key and as a copy made
 with `USING ducklake`:
@@ -37,7 +37,7 @@ The last row is the other side of the trade. A lake table has no index, so fetch
 skipping the files and row groups whose min/max statistics rule it out and scanning the rest, where
 the heap only descends a B-tree. Keep the rows the application reads one at a time in heap tables.
 
-## Writes leave the Parquet in place
+## Writes on immutable files
 
 Parquet files are never changed in place, so DuckLake keeps small writes out of them. An insert below
 a row limit is **inlined** into a Postgres table in the catalog, where queries read it alongside the
@@ -68,7 +68,7 @@ exist`. Afterwards, that connection's DuckDB has lost its catalog until it recon
 `DROP TABLE` fails. Ranges of inserts work, so the notebook stays on those.
 :::
 
-## Partitions help on object storage
+## Partitions
 
 `CALL ducklake.set_partition('events_part'::regclass, 'device')` makes later writes split their
 files by device, so that a filter on device can skip whole files. On a local disk at this size it

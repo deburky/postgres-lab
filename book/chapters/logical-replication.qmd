@@ -7,7 +7,7 @@ second Postgres, every committed insert, update and delete in the lab arrived ab
 commit, in commit order. Debezium, AWS DMS and Redshift zero-ETL all read this same
 stream, so the ways it breaks are theirs too.
 
-## One statement on each side
+## Setup
 
 The source needs `wal_level = logical` (on RDS, `rds.logical_replication = 1`), and then one
 statement on each side sets up the stream:
@@ -31,9 +31,9 @@ Updates and deletes find their row on the replica by primary key or `REPLICA IDE
 need one, and the replica must already have the tables because **DDL is never replicated**. A
 `vector` column comes across unchanged as long as both sides have pgvector.
 
-## Where the stream breaks
+## Failure modes
 
-### An unread slot pins WAL
+### Unread slots and WAL retention
 
 A slot that nobody reads never advances, and Postgres cannot recycle its write-ahead log (WAL) past
 it. With the subscription disabled and 20,000 rows written, 7 MB of WAL stayed pinned on the source
@@ -41,27 +41,27 @@ until the subscription was enabled again, which is how a forgotten Debezium conn
 in production. `max_slot_wal_keep_size` caps the damage by invalidating the slot past the cap, and
 a subscriber that has to start over is better than a primary that runs out of disk.
 
-### DDL on the source stops the stream
+### Schema changes on the source
 
 Add a column on the source and write a row, and the apply worker on the replica cannot fit that row
 into its table. It logs an error and retries forever, and nothing after that row arrives until the
 column is added on the replica too. Change the subscriber first and the publisher second, because an
 extra column on the replica does no harm and a missing one stops everything.
 
-### A write on the replica stops the apply worker
+### Writes on the replica
 
 The replica accepts writes, and a row written directly on it collides with the same key
 arriving from the source, and the apply worker stops on the unique violation until the row is
 deleted or `ALTER SUBSCRIPTION ... SKIP (lsn = ...)` skips the change. Postgres 18 counts conflicts
 of each type in `pg_stat_subscription_stats`.
 
-## What stays behind
+## Cleanup
 
 - Sequences, whose counters never move on the replica, so reset them with `setval` after a failover.
 - Slots before Postgres 17, which added failover slots.
 
 ::: {.callout-tip}
-## When to use what
+## Choosing a CDC tool
 
 Use logical replication when the target is Postgres and the data needs no transformation. Use
 Debezium when there are several consumers or the target is not Postgres. For an analytical target

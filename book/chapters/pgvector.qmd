@@ -7,7 +7,7 @@ store to keep in sync. The lab's doc-search app retrieves from 407 chunks of the
 documentation this way in about 20 ms. The work lies in the indexes, which return slightly wrong
 answers by design and are easy to bypass without noticing.
 
-## Each distance needs its own opclass
+## Distance operators and opclasses
 
 pgvector adds a `vector` type and four distance operators, and each operator needs its own index
 operator class (opclass):
@@ -24,7 +24,7 @@ results in the same order, with inner product skipping a division. The notebook 
 hand-made three-dimensional vectors whose axes mean something (`[fruit, tech, sport]`), so each
 distance can be predicted before Postgres computes it.
 
-## A similarity query is an ordinary SELECT
+## Similarity queries
 
 Filters, joins and labels go around the distance as in any other query:
 
@@ -43,7 +43,7 @@ orders those 50 by a blended score, such as similarity with popularity or recenc
 cross-encoder. For the top k per group, `row_number() OVER (PARTITION BY category ORDER BY distance)`
 numbers the rows within each category, and the query keeps the first three of each.
 
-## Re-embedding is one upsert
+## Re-embedding
 
 Embedding pipelines run again whenever the source text changes, and `INSERT ... ON CONFLICT DO
 UPDATE` on a unique key inserts new rows and refreshes existing ones in one statement:
@@ -53,21 +53,21 @@ stmt = insert(Document).values(rows)
 stmt = stmt.on_conflict_do_update(index_elements=["name"], set_={"embedding": stmt.excluded.embedding})
 ```
 
-## An index changes the answer
+## Approximate results
 
 Without an index, Postgres computes the distance to every row and sorts them, which is exact and
 affordable up to some tens of thousands of rows. An approximate nearest-neighbor index is much
 faster but *slightly wrong*, and how wrong is a setting.
 
 ::: {.callout-warning}
-## The opclass must match the operator
+## Matching opclass and operator
 
 An HNSW index built with `vector_l2_ops` is ignored by a query that orders by `<=>`. The plan
 quietly goes back to a sequential scan. Check with `EXPLAIN` after each index change.
 :::
 
 ::: {.callout-warning}
-## Filters run after the walk
+## Filtering
 
 HNSW collects `hnsw.ef_search` candidates first and applies `WHERE` afterwards. A filter that keeps
 10% of rows throws most candidates away, and the query can return fewer rows than its `LIMIT`.
