@@ -2,17 +2,17 @@
 
 ![](images/crew.svg){.column-body-outset .hero fig-alt="An isometric ink drawing of cartoon elephants at work around a Postgres database. One sends jobs from a laptop onto a belt, one picks a job off the belt, one carries it up a ramp into a hatch on the database, one inspects the hatch with a magnifying glass, one repairs the database with a wrench, one wheels cubes of data away, one stacks them on a pile and one checks them off on a clipboard."}
 
-Postgres is usually introduced as the place where an application keeps its rows. It can also be a
-vector store, a job queue, a message broker, the source of a change stream, and the place where
-access rules are enforced. Each chapter of this book takes one of those roles and asks what it
-costs, and each answer is a measurement.
+Most applications keep their rows in Postgres and add a second system as soon as they need more,
+such as Redis or RabbitMQ for a queue, a separate store for vector search, or another pipeline for
+change data. This book tests how much of that second system one Postgres can replace. Each chapter
+gives the database one of those jobs, measures what it costs, and says where it falls short.
 
-Everything comes from one repository, [postgres-lab](https://github.com/deburky/postgres-lab). It
-holds a set of Docker containers (Postgres 16 and 18 with pgvector and other extensions, a replica,
-PgBouncer, Apache Doris and a Postgres with pg_ducklake), a small FastAPI app that searches the SQLAlchemy documentation, and a
-notebook per topic. Every number in the text comes from one of those notebooks, run on a laptop.
-The notebooks are in the appendix with their outputs, so you can check any claim against the run
-that produced it.
+The measurements come from one repository, [postgres-lab](https://github.com/deburky/postgres-lab),
+which runs on a laptop. Its Docker setup brings up Postgres 16 and 18 with pgvector, a replica,
+PgBouncer, Apache Doris and a Postgres with pg_ducklake, next to a small FastAPI app that searches
+the SQLAlchemy documentation. Every number in the text comes from one of its notebooks, and the
+appendix renders each notebook with its outputs, so any claim can be checked against the run that
+produced it.
 
 ## The map
 
@@ -55,15 +55,14 @@ on local Kubernetes.
 
 ## How to read it
 
-Each chapter follows the same order. It explains the idea in a few paragraphs, describes the
-experiment that tests it, reports what the experiment found, and ends with the traps. The chapters
-stand alone, so you can read them in any order. When a chapter mentions "the notebook", it means
-the one linked at its end and rendered in the appendix.
+Each chapter opens with what the lab measured and then explains the mechanism behind it, along with
+the traps. The chapters stand alone, so they can be read in any order, and "the notebook"
+in a chapter always means the one named in its last line and rendered in the appendix.
 
 Some pages let you try things in the browser. The vector search scene in
 [Chapter 1](chapters/sqlalchemy.qmd) and the queue scene in [Chapter 8](chapters/pgqueuer.qmd)
-replay traces recorded from the lab's app, with real workers, real `NOTIFY`s and real HNSW
-searches, and they play back with no server behind them. Each one starts as a recording, and Run it
+replay traces recorded from the lab's app, so the workers, the `NOTIFY`s and the HNSW searches are
+real even though no server runs behind the page. Each one starts as a recording, and Run it
 live opens the 3D version. The pgvector, JSONB and pgmq chapters end with a SQL console, which runs
 a real Postgres inside the page.
 

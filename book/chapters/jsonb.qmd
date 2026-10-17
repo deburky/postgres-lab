@@ -1,15 +1,13 @@
 # Documents in a relational database
 
-Sooner or later most applications need a bit of schemaless data, such as attributes that differ
-per row or a payload stored exactly as it arrived. `JSONB` lets a Postgres column hold a whole JSON
-document, stored in a binary form that can be indexed, next to ordinary typed columns. That covers
-the need without a second database. The SQL takes half a dozen operators, and SQLAlchemy maps each
-of them to Python.
+`JSONB` stores a whole JSON document in a Postgres column, in a binary form that can be indexed, so
+attributes that differ per row and payloads kept exactly as they arrived need no second database.
+SQLAlchemy maps each JSONB operator to Python. The rule that catches people out is that a missing key
+reads as SQL `NULL`, which quietly changes what a negated filter returns.
 
 ## Reading values out
 
-Four operators cover most reads. The first two take a key and differ in what they return, because
-`->` gives back JSON and `->>` gives back text.
+`->` returns JSON and `->>` returns text, and a cast turns that text into a typed value:
 
 | SQL | SQLAlchemy | result |
 |---|---|---|
@@ -18,62 +16,60 @@ Four operators cover most reads. The first two take a key and differ in what the
 | `payload #>> '{a,b}'` | `Event.payload[("a", "b")].astext` | text, nested |
 | `(payload ->> 'k')::int` | `Event.payload["k"].as_integer()` | integer |
 
-A missing key comes back as SQL `NULL`. That small rule matters more than it looks, as the next
-section shows.
+Each of these returns `NULL` when the key is missing.
 
-## Filtering, and the NULL trap
+## Containment does most of the filtering
 
-Most filters use containment, `@>`, which asks whether the document includes a given fragment. A
-GIN index (an index over the keys and values inside each document) can serve it.
+Most filters use containment, `@>`, which asks whether the document includes a given fragment and
+can use a GIN index:
 
 ```python
 select(Event).where(Event.payload.contains({"user": {"plan": "pro"}}))
 ```
 
-The trap is negation. `payload ->> 'device' != 'web'` silently drops every row that has no `device`
-key at all. For those rows the left side is `NULL`, and `NULL != 'web'` is not true but `NULL`.
-When a missing key should count as "not web", the query has to say so, as in
+## Negation drops the rows without the key
+
+Negation is where `NULL` bites. `payload ->> 'device' != 'web'` drops every row that has no
+`device` key, because for those rows the comparison is `NULL != 'web'`, which is `NULL` rather than
+true. When a missing key should count as "not web", the query has to say so, as in
 `or_(Event.payload["device"].astext != "web", ~Event.payload.has_key("device"))`.
 
 ## Arrays become rows
 
-`jsonb_array_elements` turns one row that holds an array into one row per element. From there,
-`WHERE`, `GROUP BY` and `JOIN` work as usual. In SQLAlchemy, `.table_valued(...)` turns the function
-into something you can put in `FROM`. You then join it `ON true`, and Postgres evaluates the join
-laterally, once per row. In code it looks like this:
+`jsonb_array_elements` turns one row that holds an array into one row per element, after which
+`WHERE`, `GROUP BY` and `JOIN` work as usual. In SQLAlchemy, `.table_valued(...)` makes the function
+usable in `FROM`, and joining it `ON true` makes Postgres evaluate it laterally, once per row:
 
 ```python
 item = func.jsonb_array_elements(Event.payload["items"]).table_valued(column("value", JSONB))
 select(Event.id, item.c.value["sku"].astext).join(item, true())
 ```
 
-`jsonb_to_recordset` does the same but returns typed columns instead of one `jsonb` value. When the
-elements share a shape, that saves the casts.
+`jsonb_to_recordset` returns typed columns instead of one `jsonb` value, which saves the casts when
+the elements share a shape.
 
 ## Paths and updates
 
-Postgres 12 added the SQL/JSON path language, a small query language that runs inside one document
-and is a close cousin of `jq`. For example, `$.items[*] ? (@.qty > 1)` selects the items with a
-quantity above one.
+Postgres 12 added the SQL/JSON path language, which queries inside one document much as `jq` does.
+`$.items[*] ? (@.qty > 1)`, for example, selects the items with a quantity above one.
 
 Updates are operators too. `||` merges two documents, `-` removes a key, `#-` removes a path, and
-`jsonb_set` writes a value at a path. Add `RETURNING` and the same round trip sends back what
+`jsonb_set` writes a value at a path. With `RETURNING`, the same round trip sends back what
 changed.
 
 ::: {.callout-tip}
 ## When JSONB, when columns
 
-Use columns for anything you filter, join or aggregate on routinely. Use JSONB for the long tail,
-such as attributes that differ per row, payloads you store as received, and settings. A GIN index with
-`jsonb_path_ops` makes containment fast, but no index makes a JSONB key as cheap to query as a
-typed column.
+Use columns for anything you filter, join or aggregate on routinely, and JSONB for the long tail of
+per-row attributes, payloads stored as received, and settings. A GIN index with `jsonb_path_ops`
+makes containment fast, but a JSONB key never gets as cheap to query as a typed column.
 :::
 
 ## Try it here
 
-The console below runs every operator above on a small `events` table. Each row's `payload` holds a
-user, a device (on most rows) and line items. Each chip loads a query and runs it, and you can edit
-the SQL and press Run to try your own.
+The console runs every operator above on a small `events` table whose `payload` holds a user, a
+device on most rows, and line items. Each chip loads a query and runs it, and you can edit the SQL
+to run your own.
 
 ::: {.viz .console .column-page}
 <iframe src="../viz/sql.html?lab=jsonb&embed=1" loading="lazy" title="JSONB SQL console"></iframe>
@@ -85,5 +81,7 @@ The first visit downloads about 10 MB, and after that it starts in a second or t
 in this tab, and Reset data starts over. [Open full screen](../viz/sql.html?lab=jsonb){target="_blank"}.
 :::
 
-The [JSONB playground notebook](../notebooks/jsonb_playground.ipynb) returns every query as a
-DataFrame and shows the compiled SQL beside it.
+::: {.chapter-notebook}
+The queries come from the [JSONB notebook](../notebooks/jsonb_playground.ipynb), which returns each
+one as a DataFrame next to its compiled SQL.
+:::

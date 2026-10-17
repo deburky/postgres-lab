@@ -1,29 +1,28 @@
 # Access as code
 
 ![](../images/spot-5.svg){.spot fig-alt="A gate with a yellow lintel, three pods and a sheet of paper on a mint tile. An elephant in a vest checks a clipboard."}
-The rules for who may read or write which tables are usually typed into a database by hand, once,
-and then nobody remembers why they look the way they do. Writing them down as code fixes that. The
-rules live in a file, a tool compares the file with the server, and a change is a reviewed diff. The
-lab writes one small access model twice, once with Pulumi and once with pgsesame, and applies each
-to a real server to show how the two approaches differ.
+Pulumi and pgsesame both keep Postgres roles and grants in code, and writing the same small model
+with each shows where they differ. Pulumi checks its program against a state file, so a grant
+changed by hand on the server stays invisible until a refresh, while pgsesame keeps no state and
+reads the catalog on every plan. Either way the rules live in a file and a change is a reviewed diff,
+which beats grants typed into a server once and never explained.
 
-## The model
+## One model, written twice
 
-Both tools describe the same model, which has four parts.
+Both tools describe the same model:
 
-- Two group roles, `app_ro` (read) and `app_rw` (read and write), cannot log in.
-- The group roles get usage on the schema and grants on its tables and sequences.
-- **Default privileges** give tables that the `app` role creates later the same grants
-  automatically. Hand-made setups most often forget this part.
-- Two login users, `reporter` and `ingest`, get access only through membership in a group role.
+- two group roles, `app_ro` (read) and `app_rw` (read and write), that cannot log in
+- usage on the schema, and grants on its tables and sequences, for the group roles
+- **default privileges**, so that tables the `app` role creates later get the same grants (the part
+  hand-made setups most often forget)
+- two login users, `reporter` and `ingest`, who get access only through membership in a group role
 
-Tables, schemas and extensions are left out. They belong to the application and its migrations.
+Tables, schemas and extensions stay out, because they belong to the application and its migrations.
 
 ## Pulumi keeps state and shows a diff {#pulumi-state-and-a-diff}
 
 `pulumi/__main__.py` builds the model with `pulumi-postgresql`, a bridge to the provider that
-Terraform uses. `pulumi preview` compares the program with the last applied state, and `pulumi up`
-applies the difference.
+Terraform uses, and `pulumi up` applies what `pulumi preview` shows:
 
 ```bash
 pulumi preview            # what would change
@@ -31,16 +30,15 @@ pulumi up
 pulumi preview --refresh  # drift check: re-read the database first
 ```
 
-Running it taught two lessons. First, a plain `preview` compares the program with the *state* file,
-not with the database, so changes made by hand show up only with `--refresh`. Second, the grants
-have to be chained with `depends_on`. The provider runs them in parallel, and Postgres then fails
-with "tuple concurrently updated".
+A plain `preview` compares the program with the state file rather than the database, which is why
+hand-made changes appear only with `--refresh`. The grants also have to be chained with
+`depends_on`, because the provider runs them in parallel and Postgres then fails with "tuple
+concurrently updated".
 
 ## pgsesame reads the server instead {#pgsesame-one-yaml-file-no-state}
 
-[pgsesame](https://github.com/almostly/pgsesame) declares the same model in `pgsesame/spec.yaml`.
-It keeps no state file. Instead, `plan` reads the database catalog and prints the SQL that would make
-the server match the spec.
+[pgsesame](https://github.com/almostly/pgsesame) declares the same model in `pgsesame/spec.yaml`, and
+its `plan` reads the database catalog and prints the SQL that would make the server match the spec:
 
 ```yaml
 principals:
@@ -68,8 +66,8 @@ sesame plan     # empty: nothing drifted
 sesame import   # write a spec from what a server grants today
 ```
 
-Destructive changes (revokes, drops and changes of owner) need explicit flags. Passwords come from
-environment variables and never from the file.
+Destructive changes (revokes, drops and changes of owner) need explicit flags, and passwords come
+from environment variables, never from the file.
 
 ## Side by side
 
@@ -85,5 +83,7 @@ Either tool works, but only one of them should manage the roles on a given serve
 database access is one part of a larger infrastructure program. pgsesame fits when the database is
 the whole story and you want the plan to be SQL you can read.
 
+::: {.chapter-notebook}
 In the lab, `just sesame plan pg18` and `just sesame apply pg18` run pgsesame, and `pulumi/` holds
 the Pulumi stack.
+:::

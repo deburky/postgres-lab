@@ -1,19 +1,16 @@
 # Change data capture from Postgres to Postgres
 
 ![](../images/spot-4.svg){.spot fig-alt="Two cylinders, Postgres and a warehouse, joined by a pipe with rows travelling along it. An elephant wheels cubes of data between them."}
-Change data capture (CDC) means following every change to a database as it is committed, so that
-another system stays in step. It is usually drawn as Postgres, then Debezium, then Kafka, then the
-target. The first arrow is the interesting one, and Postgres can follow it on its own. The source
-publishes tables and a second Postgres subscribes to them. Every committed insert, update and
-delete then arrives a few milliseconds later, in commit order.
+Change data capture is usually drawn as Postgres, then Debezium, then Kafka, then the target, and
+Postgres can do the first arrow on its own. With a publication on the source and a subscription on a
+second Postgres, every committed insert, update and delete in the lab arrived about 9 ms after
+commit, in commit order. Debezium, AWS DMS and Redshift zero-ETL all read this same stream and differ
+only in where they write it, so the ways it breaks are theirs too.
 
-Debezium, AWS DMS and Redshift zero-ETL all read this same stream. They differ only in where they
-write it.
+## One statement on each side
 
-## Publish, subscribe
-
-The source needs one setting, `wal_level = logical` (on RDS, `rds.logical_replication = 1`). After
-that, one statement on each side sets up the stream:
+The source needs `wal_level = logical` (on RDS, `rds.logical_replication = 1`), and then one
+statement on each side sets up the stream:
 
 ```sql
 -- on the source
@@ -25,55 +22,53 @@ CREATE SUBSCRIPTION lab_sub
   PUBLICATION lab_pub;
 ```
 
-A publication is only a list of tables, and it changes nothing by itself. The subscription does the
-work. It creates a replication slot on the source (a bookmark of how far the subscriber has read),
-copies the existing rows, and then streams changes from the slot.
+A publication is only a list of tables. The subscription does the work, creating a replication slot
+on the source (a bookmark of how far the subscriber has read), copying the existing rows, and then
+streaming changes from the slot. Since Postgres 15 a publication can also filter rows and columns,
+as in `CREATE PUBLICATION p FOR TABLE events (id, kind) WHERE (kind = 'purchase')`.
 
-Two conditions apply. Tables need a primary key, or a `REPLICA IDENTITY`, so that updates and
-deletes can find their row on the replica. The replica must also already have the tables, because
-**DDL is never replicated**. A `vector` column comes across unchanged as long as both sides have
-pgvector.
+Updates and deletes find their row on the replica by primary key or `REPLICA IDENTITY`, so tables
+need one, and the replica must already have the tables because **DDL is never replicated**. A
+`vector` column comes across unchanged as long as both sides have pgvector.
 
-In the lab, changes were visible on the replica about 9 ms after commit.
+## Where the stream breaks
 
-## Three ways it goes wrong
+### An unread slot pins WAL
 
-The notebook reproduces each of these failures.
+A slot that nobody reads never advances, and Postgres cannot recycle its write-ahead log (WAL) past
+it. With the subscription disabled and 20,000 rows written, 7 MB of WAL stayed pinned on the source
+until the subscription was enabled again, which is how a forgotten Debezium connector fills a disk
+in production. `max_slot_wal_keep_size` caps the damage by invalidating the slot past the cap, and
+a subscriber that has to start over is better than a primary that runs out of disk.
 
-**The slot holds WAL.** WAL is the log of changes that Postgres writes before it changes any table.
-A slot that nobody reads never advances, and Postgres cannot recycle WAL past it. With the
-subscription disabled and 20,000 rows written, 7 MB of WAL stayed pinned on the source until the
-subscription was enabled again. In production, this is how a forgotten Debezium connector fills a
-disk. `max_slot_wal_keep_size` caps the damage. Past the cap, the slot is invalidated and the
-subscriber has to start over, which is better than losing the primary.
+### DDL on the source stops the stream
 
-**DDL breaks the stream.** Add a column on the source and write a row. The apply worker on the
-replica cannot fit that row into its table, so it logs an error and retries forever, and nothing
-after that row arrives. Adding the column on the replica lets the stream resume. The rule is to
-change the subscriber first and the publisher second, because an extra column on the replica does
-no harm and a missing one stops everything.
+Add a column on the source and write a row, and the apply worker on the replica cannot fit that row
+into its table. It logs an error and retries forever, and nothing after that row arrives until the
+column is added on the replica too. Change the subscriber first and the publisher second, because an
+extra column on the replica does no harm and a missing one stops everything.
 
-**Conflicts stop the apply worker.** Nothing makes the replica read-only. A row written directly on the replica collides
-with the same key arriving from the source, and the apply worker stops on the unique violation.
-Deleting the row, or running `ALTER SUBSCRIPTION ... SKIP (lsn = ...)`, lets it resume. Postgres 18
-counts conflicts of each type in `pg_stat_subscription_stats`.
+### A write on the replica stops the apply worker
 
-## What else is not replicated
+Nothing makes the replica read-only. A row written directly on it collides with the same key
+arriving from the source, and the apply worker stops on the unique violation until the row is
+deleted or `ALTER SUBSCRIPTION ... SKIP (lsn = ...)` skips the change. Postgres 18 counts conflicts
+of each type in `pg_stat_subscription_stats`.
 
-- Sequences are not replicated. The replica's counters never move, so reset them with `setval` after
-  a failover.
-- Before Postgres 17, slots do not survive a failover. Postgres 17 adds failover slots.
+## What stays behind
 
-Since Postgres 15, publications also take row filters and column lists, as in
-`CREATE PUBLICATION p FOR TABLE events (id, kind) WHERE (kind = 'purchase')`.
+- Sequences, whose counters never move on the replica, so reset them with `setval` after a failover.
+- Slots before Postgres 17, which added failover slots.
 
 ::: {.callout-tip}
 ## When to use what
 
 Use logical replication when the target is Postgres and the data needs no transformation. Use
 Debezium when there are several consumers or the target is not Postgres. For an analytical target
-that can read the stream itself, see the [next chapter](doris.qmd).
+that reads the stream itself, Apache Doris has [built-in CDC](doris.qmd).
 :::
 
-The [Logical replication](../notebooks/logical_replication.ipynb) notebook reproduces every case above
-against a second pg16, started with `just db replica`.
+::: {.chapter-notebook}
+The measurements come from the [logical replication notebook](../notebooks/logical_replication.ipynb),
+run against a second pg16 started with `just db replica`.
+:::

@@ -1,10 +1,10 @@
 # Postgres to Apache Doris
 
-[Apache Doris](https://doris.apache.org/) is a columnar analytical database. It stores each column
-separately, which makes scans and aggregates over many rows fast. It speaks the MySQL protocol.
-Since version 4.1 it can follow Postgres by itself. One statement creates the target tables, copies
-the existing rows and then streams changes from a replication slot, with no Kafka or Debezium to
-deploy in between. This is the statement the lab ran:
+Since version 4.1, [Apache Doris](https://doris.apache.org/), a columnar analytical database that
+speaks the MySQL protocol, can follow Postgres by itself, with no Kafka or Debezium to deploy. One
+statement creates the target tables, copies the existing rows and streams changes from a
+replication slot. In the lab, changes took 5 to 11 seconds to arrive, schema changes came across on
+their own, and a `vector` column arrived as NULL without an error. This is the statement the lab ran:
 
 ```sql
 CREATE JOB pg_mirror_job
@@ -24,28 +24,28 @@ TO DATABASE pg_mirror ("table.create.properties.replication_num" = "1");
 
 ## What the lab found
 
-The lab runs one Doris frontend and one backend next to pg16, and points a job at the project's
-tables. The table lists what it found on Doris 4.1.4.
+The lab runs one Doris frontend and one backend next to pg16 and points a job at the project's
+tables. On Doris 4.1.4 it found:
 
 | | |
 |---|---|
-| source side | the job creates its own publication and slot, one per job; `DROP JOB` removes both |
-| latency | seconds, not milliseconds: about 11 with the default `max_interval` of 10, about 5 with 1 |
+| source side | the job creates its own publication and slot, one per job, and `DROP JOB` removes both |
+| latency | about 11 s with the default `max_interval` of 10, and about 5 s with 1 |
 | types | `jsonb` lands as `text`, `uuid` as `text`, `timestamptz` as `datetime(6)` in the Doris time zone |
-| `vector` | auto table creation refuses it; in a pre-created table it arrives as NULL, silently |
+| `vector` | auto table creation refuses it, and in a pre-created table it arrives as NULL without an error |
 | generated columns | copied by the snapshot, then dropped once streaming starts |
-| DDL | added and dropped columns propagate, which Postgres to Postgres does not do |
+| DDL | added and dropped columns propagate |
 
-The trade against the [previous chapter](logical-replication.qmd) is latency for convenience.
-Changes take seconds to arrive instead of milliseconds, but schema changes come across on their
-own.
+Against [logical replication](logical-replication.qmd), the trade is latency for convenience.
+Changes arrive in seconds instead of milliseconds, and schema changes come across on their own where
+Postgres to Postgres stops the stream.
 
-## The vector problem
+## Vectors arrive as NULL
 
-Doris's CDC client is Debezium's Postgres connector, and Debezium has no converter for pgvector's
-`vector` type. The column does not fail. It arrives as NULL instead. The notebook verifies a
-workaround, in which a trigger on the source keeps a `real[]` copy of each embedding. That copy arrives as `ARRAY<FLOAT>`,
-and Doris's own `cosine_distance` then returns the same top five as pgvector.
+Doris's CDC client is Debezium's Postgres connector, which has no converter for pgvector's `vector`
+type, so the column arrives as NULL instead of failing. The workaround the notebook verifies is a
+trigger on the source that keeps a `real[]` copy of each embedding. That copy arrives as
+`ARRAY<FLOAT>`, and Doris's own `cosine_distance` then returns the same top five as pgvector.
 
 ::: {.callout-warning}
 ## Sized for a server
@@ -56,5 +56,7 @@ in `MEM_LIMIT_EXCEEDED`. The lab's compose file caps both (`DORIS_FE_HEAP`, `DOR
 fit beside the other containers.
 :::
 
-The [Doris CDC](../notebooks/doris_cdc.ipynb) notebook runs every step above against servers started
-with `just db doris`.
+::: {.chapter-notebook}
+The measurements come from the [Doris CDC notebook](../notebooks/doris_cdc.ipynb), run against
+servers started with `just db doris`.
+:::

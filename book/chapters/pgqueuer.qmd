@@ -1,35 +1,31 @@
 # A job queue that is just a table
 
-![](../images/spot-3.svg){.spot fig-alt="Coloured job cubes waiting on a conveyor in front of three worker blocks. An elephant in overalls picks a job off the conveyor."}
-A job queue lets an application hand slow work, such as fetching and embedding a web page, to
-background workers and answer the request straight away. The usual tools for this are Redis or
-RabbitMQ, a second system to run next to the database. [PgQueuer](https://github.com/janbjorge/pgqueuer)
-keeps the queue in Postgres instead, as an ordinary table with one row per job.
+![](../images/spot-3.svg){.spot fig-alt="Colored job cubes waiting on a conveyor in front of three worker blocks. An elephant in overalls picks a job off the conveyor."}
+PgQueuer keeps a job queue in Postgres as an ordinary table with one row per job, where most
+applications would run Redis or RabbitMQ next to the database. Because the queue is a table, a job
+enqueued in the same transaction as the data it refers to exists only if that data was committed.
 
-Three Postgres features make that work.
+`FOR UPDATE SKIP LOCKED` lets any number of workers pull from the table without two of them getting
+the same job, and a trigger that calls `NOTIFY` on every insert wakes idle workers within
+milliseconds, so no worker polls.
 
-- **`FOR UPDATE SKIP LOCKED`** lets a worker claim rows that no other worker has locked, so any
-  number of workers can pull from one table without two of them getting the same job.
-- **`LISTEN` / `NOTIFY`** is a message channel inside Postgres. A trigger sends a notification on
-  every insert, so idle workers wake within milliseconds instead of polling the table.
-- **Transactions** cover the queue too. A job enqueued in the same transaction as the data it
-  refers to exists only if that data was committed.
+## A claim holds its lock for one statement
 
-## How a worker claims a job
-
-A worker takes jobs in one short statement. It selects the oldest waiting rows with
+A worker claims jobs in one short statement that selects the oldest waiting rows with
 `FOR UPDATE SKIP LOCKED`, sets their status to `picked`, and commits. The row lock lasts only for
-that statement. While the job runs, nothing is locked, and the row is only marked as `picked`.
+that statement, so a running job holds no lock and is marked only by its status.
 
-Crashes are handled by a second column. Each worker keeps a `heartbeat` column fresh while it
-works. When a job's heartbeat is older than `heartbeat_timeout` (30 s by default), the next worker
-that looks for jobs takes it over. A crashed worker's jobs therefore come back on their own, shortly
-after its heartbeats stop.
+## A stale heartbeat frees the job
+
+Crash recovery uses a heartbeat in place of a lock. Each worker keeps `heartbeat` fresh while it
+works, and once a job's heartbeat is older than `heartbeat_timeout` (30 s by default) the next worker
+looking for jobs takes it over, so a crashed worker's jobs come back on their own.
 
 ## Watching a real run
 
-The scene below replays real runs. The lab's `POST /queue/trace` endpoint starts pgqueuer workers on
-their own connections, enqueues jobs, and records each insert, each notification and each attempt.
+The scene below replays runs recorded by the lab's `POST /queue/trace` endpoint, which starts
+pgqueuer workers on their own connections, enqueues jobs, and records each insert, notification and
+attempt.
 
 ::: {#queue-frame .viz .scene .column-body-outset data-src="../viz/queue.html?preset=skip&embed=1" data-poster="../images/queue.gif" data-title="A pgqueuer run, replayed"}
 :::
@@ -43,34 +39,31 @@ their own connections, enqueues jobs, and records each insert, each notification
 <a href="../viz/queue.html" target="_blank">Open full screen</a>
 :::
 
-Python inserts jobs on the far side, and each job becomes one cell in the `pgqueuer` table. Every
-notification spreads as a ring from the table, and idle workers flash when it reaches them. While a
-worker holds a job, its row lights up in that worker's colour and the job rides on the worker's
-roof. When the job finishes, pgqueuer deletes the row and it drops into the `pgqueuer_log` strip at
-the front.
+Jobs enter on the far side and land as cells in the `pgqueuer` table. Each notification spreads
+from the table as a ring, and idle workers flash when it reaches them. A claimed row lights up in its
+worker's color while the job rides on the worker's roof. When the job finishes, pgqueuer deletes the
+row, and it drops into the `pgqueuer_log` strip at the front.
 
 | preset | what to watch |
 |---|---|
-| SKIP LOCKED | 24 jobs and 3 workers taking 2 at a time: three colours share the table, never the same row |
-| NOTIFY | one `INSERT` per job: each ring wakes an idle worker, which picks the row within milliseconds |
-| Limit | `concurrency_limit = 2` across 3 workers: the picked counter never goes above 2 |
-| Retries | 30% of attempts fail: peach rows wait out a delay that doubles before each new attempt |
-| Priority | one worker, one job at a time: tall rows (high priority) go first, whatever order they arrived in |
+| SKIP LOCKED | 24 jobs and 3 workers taking 2 at a time. Three colors share the table and never the same row. |
+| NOTIFY | One `INSERT` per job. Each ring wakes an idle worker, which picks the row within milliseconds. |
+| Limit | `concurrency_limit = 2` across 3 workers. The picked counter stays at 2 or below. |
+| Retries | 30% of attempts fail. Peach rows wait out a delay that doubles before each new attempt. |
+| Priority | One worker, one job at a time. Tall rows (high priority) go first, whatever order they arrived in. |
 
-## What the library adds
+## What pgqueuer adds to the table
 
-The table and the claim are the whole queue. On top of them, pgqueuer adds four features that an
-application needs in practice.
+The table and the claim are the whole queue. The library adds what an application needs around
+them:
 
-- **Dedupe keys.** Enqueueing a key that a waiting job already has does nothing, so running the
-  same ingest twice queues no extra work.
-- **Retries with backoff.** With `on_failure="hold"`, a job that runs out of attempts stays in the
-  table as `failed`, where you can inspect it and requeue it with `pgq requeue`.
-- **Concurrency limits.** The database enforces each limit across all workers, not per process.
-- **Schedules.** A schedule is a cron expression, and whichever worker gets there first runs it.
+- dedupe keys, so running the same ingest twice queues no extra work
+- retries with backoff, and `on_failure="hold"` to keep a job that ran out of attempts as `failed`,
+  ready for `pgq requeue`
+- concurrency limits that the database enforces across all workers at once
+- cron schedules, run by whichever worker gets there first
 
-The lab's `app/jobs.py` runs the documentation ingest this way, with one job per page. This is its
-entry point and the call that enqueues the pages:
+The lab's `app/jobs.py` sets up the ingest like this:
 
 ```python
 def retrying(params: EntrypointExecutorParameters) -> DatabaseRetryEntrypointExecutor:
@@ -89,8 +82,8 @@ await queries.enqueue(
 )
 ```
 
-Two workers ingest all 20 pages (407 chunks) in about 18 s, and most of that time goes on loading
-the embedding model.
+With this setup, two workers ingest all 20 pages (407 chunks) in about 18 s, most of it spent
+loading the embedding model.
 
 ::: {.callout-warning}
 ## Use asyncpg for the workers
@@ -100,5 +93,7 @@ connection busy for up to a second, and the worker's other queries wait behind i
 concurrency limit, five trivial jobs took 15 s on psycopg and 0.07 s on asyncpg.
 :::
 
-The [pgqueuer taken apart](../notebooks/pgqueuer_playground.ipynb) notebook runs the workers as
-asyncio tasks inside the notebook. The [next chapter](pgmq.qmd) looks at a different queue design.
+::: {.chapter-notebook}
+The measurements come from the [pgqueuer notebook](../notebooks/pgqueuer_playground.ipynb), which
+runs the workers as asyncio tasks.
+:::

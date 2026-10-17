@@ -1,16 +1,15 @@
 # Sync and async, side by side
 
 ![](../images/spot-1.svg){.spot fig-alt="A small isometric town on a yellow tile, joined to a blue-topped Postgres cylinder by two pipes. An elephant in a hoodie works on a laptop in front."}
-SQLAlchemy 2.0 runs the same statements, the same models and the same results in two styles. In
-sync code each call blocks until the database answers. In async code the call is `await`ed, and the
-process can do other work while it waits. Learning to write either takes an afternoon. This chapter
-is about what async buys, and where it bites.
+SQLAlchemy 2.0 runs the same models and statements in sync and async code, and what async buys is
+overlap. Ten queries that each spend 200 ms on the server take about 2 s one after another, and
+about 200 ms under `asyncio.gather`, while each query on its own runs no faster. The price is a
+lazy-loading error that sync code never raises, and a server connection for every query in flight.
 
-## One driver, two engines
+## One driver serves both engines
 
-SQLAlchemy picks the database driver from the URL. psycopg 3 implements both the blocking and the
-asyncio interfaces, so one `DATABASE_URL` can serve a sync engine for scripts and migrations and an
-async engine for the web app. The two engines are created like this:
+psycopg 3 implements both the blocking and the asyncio interfaces, so one `DATABASE_URL` can serve a
+sync engine for scripts and migrations and an async engine for the web app:
 
 ```python
 from sqlalchemy import create_engine
@@ -22,9 +21,7 @@ async_engine = create_async_engine(url)  # FastAPI
 ```
 
 With `postgresql+asyncpg://` only the async engine would work, and with `psycopg2` only the sync
-one. That is why the lab uses psycopg by default.
-
-Most of the code is the same in both styles, and the table lists what differs.
+one, which is why the lab uses psycopg by default. Most of the code is the same in both styles:
 
 | | sync | async |
 |---|---|---|
@@ -35,45 +32,40 @@ Most of the code is the same in both styles, and the table lists what differs.
 | `select`, `insert`, `text`, models | identical | identical |
 | lazy loading | works | raises |
 
-Only the round trip is awaited. `await conn.execute(...)` fetches the rows, and reading them with
-`.one()`, `.all()` or `.scalars()` afterwards is in-memory work with no `await`.
+Only the round trip is awaited. `await conn.execute(...)` fetches the rows, and `.one()`, `.all()`
+or `.scalars()` afterwards read them from memory.
 
-## The lazy-loading trap
+## Lazy loading raises in async code
 
-A lazy load is a query that SQLAlchemy fires when you touch a relationship attribute that has not
-been loaded yet. In `author.notes` there is nowhere to put an `await`, so rather than block the
-event loop, the async session raises an error like this one.
+Touching a relationship that has not been loaded makes SQLAlchemy fire a query, and in
+`author.notes` there is nowhere to put the `await`. Rather than block the event loop, the async
+session raises:
 
 ```python
 author = (await session.execute(select(Author))).scalars().first()
 author.notes   # MissingGreenlet: greenlet_spawn has not been called
 ```
 
-The same happens to attributes that `commit()` has expired, which is why `AsyncSession` is almost
-always created with `expire_on_commit=False`. There are three ways out, best first. Eager-load what
-you need with `selectinload(Author.notes)`. Load it explicitly with
-`await session.refresh(author, ["notes"])`. Or add `AsyncAttrs` to the model and write
+Attributes that `commit()` has expired fail the same way, which is why `AsyncSession` is almost
+always created with `expire_on_commit=False`. The best way out is to eager-load what you need with
+`selectinload(Author.notes)`. Failing that, load it explicitly with
+`await session.refresh(author, ["notes"])`, or add `AsyncAttrs` to the model and write
 `await author.awaitable_attrs.notes`.
 
-## What async buys {#what-async-buys-overlapping-waits}
+## The pool sets the ceiling {#what-async-buys-overlapping-waits}
 
-Async lets the waits of several queries overlap, but a single query is not faster async. What
-changes is what the process does while the database is busy. Ten queries that each spend 200 ms on
-the server take about 2 s one after another. Under `asyncio.gather`, with a pooled connection for
-each, they take about 200 ms. A thread pool gets the
-same overlap, at the price of one thread per query.
-
-The connection pool sets the ceiling. `create_async_engine` defaults to `pool_size=5` and
-`max_overflow=10`, so 15 queries can overlap and the 16th waits for a free connection. In every case
-the database does the same total work, and only the client stops idling. If the bottleneck is the
+Overlap needs a connection for each query in flight. `create_async_engine` defaults to
+`pool_size=5` and `max_overflow=10`, which lets 15 queries overlap while the 16th waits for a free
+connection. A thread pool gets the same overlap at the price of one thread per query. Either way the
+database does the same total work and only the client stops idling, so when the bottleneck is the
 database's CPU, async changes nothing.
 
 ## Watching it happen
 
-The lab's app answers questions about the SQLAlchemy documentation with pgvector. Its `POST /trace`
-endpoint answers the same questions twice with tracing on. The **sync** run takes them one after
-another on one connection. The **async** run gives each question its own task and connection under
-`gather`. The scene below replays one such pair on a shared clock.
+The lab's app answers questions about the SQLAlchemy documentation with pgvector, and its
+`POST /trace` endpoint answers the same questions twice with tracing on. The sync run takes them one
+after another on one connection, and the async run gives each question its own task and connection
+under `gather`. The scene replays one such pair on a shared clock.
 
 ::: {.viz .scene .column-body-outset data-src="../viz/index.html?embed=1" data-poster="../images/city.gif" data-title="Vector search with pgvector, sync and async"}
 :::
@@ -84,17 +76,15 @@ documentation field as the HNSW walk returns. Run it live to orbit the scene, or
 [Open full screen](../viz/index.html){target="_blank"}.
 :::
 
-The async plate finishes while the sync one is still working through its queue, and the two wall
-times in the corner show by how much. Each backend on the async plate is a separate Postgres
-process, because Postgres starts one process per connection. That is the cost of the trade, because
-concurrency on the client is paid for in connections on the server. [PgBouncer](pgbouncer.qmd)
-exists to manage that cost.
+The async plate finishes while the sync one is still working through its queue, and the wall times
+in the corner show by how much. Each backend on the async plate is a separate Postgres process, so
+the concurrency gained on the client is paid for in connections on the server. Managing that cost is
+what [PgBouncer](pgbouncer.qmd) is for.
 
-## Sync code from async code
+## Sync libraries inside async code
 
-pandas, Alembic and much older code want a sync connection. Inside async code, `run_sync` hands
-them one that is bridged onto the async connection, so a second engine is not needed. For example,
-pandas can read a query result through it.
+pandas, Alembic and much older code want a sync connection. `run_sync` hands them one bridged onto
+the async connection, so a second engine is not needed:
 
 ```python
 async with async_engine.connect() as conn:
@@ -103,16 +93,19 @@ async with async_engine.connect() as conn:
 
 ## Which one to use
 
-Use sync for scripts, notebooks, batch jobs and migrations. Every library works with it, and stack
+Use sync for scripts, notebooks, batch jobs and migrations, where every library works and stack
 traces are simpler. Use async for web services and for anything that waits on many databases or
 APIs at once, with eager loading, `expire_on_commit=False` and a pool sized for your concurrency. A
-mixed code base can use one driver (psycopg 3), one URL and both engines, with `run_sync` where the
-two meet.
+mixed code base needs only one driver (psycopg 3), one URL and both engines, with `run_sync` where
+the two meet.
 
 ::: {.callout-note}
 ## In the lab
 
 `src/db.py` is the async side of that setup. `src/settings.py` checks every server URL with
-pydantic-settings, so a malformed URL fails when the module is imported, not at the first query.
-The [Sync vs async notebook](../notebooks/sync_vs_async.ipynb) runs every example in this chapter.
+pydantic-settings, so a malformed URL fails at import time, before the first query runs.
+:::
+
+::: {.chapter-notebook}
+The examples and timings come from the [sync vs async notebook](../notebooks/sync_vs_async.ipynb).
 :::

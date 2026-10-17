@@ -1,41 +1,35 @@
 # Postgres without a server
 
-Tests that touch the database usually need a Postgres server running somewhere, in Docker or on a
-CI service. [PGlite](https://pglite.dev/) removes that step. It is Postgres 17 compiled to
-WebAssembly, so the whole engine runs inside a JavaScript process, with no daemon, no port and no
-Docker.
+[PGlite](https://pglite.dev/) runs the lab's own models unchanged, pgvector and HNSW index
+included, without a Postgres server. It is Postgres 17 compiled to WebAssembly, so the engine runs
+inside a JavaScript process with no daemon, port or Docker, and
+[py-pglite](https://pypi.org/project/py-pglite/) starts it from Python in about two seconds behind a
+socket that speaks the Postgres wire protocol. psycopg and SQLAlchemy connect to that socket as they
+would to any server, which makes PGlite a good database for tests and a poor one for anything else.
 
-[py-pglite](https://pypi.org/project/py-pglite/) starts PGlite from Python and puts a socket in
-front of it that speaks the Postgres wire protocol. psycopg and SQLAlchemy connect to that socket
-as they would to any Postgres server. It starts in about two seconds, which makes it a good fit for
-running tests.
+## The lab's models run unchanged
 
-## What works
-
-The lab's own models run unchanged. `Base.metadata.create_all` creates the `documents` table with
-its `Vector(1536)` column and the JSONB `events` table, because PGlite bundles pgvector. Distances,
-nearest-neighbour queries and even an HNSW index work inside WebAssembly. The code under test
-cannot tell that it is not talking to a server, which is the point.
+`Base.metadata.create_all` creates the `documents` table with its `Vector(1536)` column and the
+JSONB `events` table, because PGlite bundles pgvector. Distances, nearest-neighbor queries and even
+an HNSW index work inside WebAssembly, and the code under test cannot tell that no server is
+involved.
 
 ## Where it stops being Postgres
 
-The notebook found four limits, and it demonstrates or documents each one.
+The notebook demonstrates or documents each of these limits:
 
-1. **One connection at a time.** PGlite serves a single user, and the bridge accepts one client.
-   While the notebook was being written, a second simultaneous connection crashed psycopg, so
-   everything goes through one shared engine.
-2. **Messages above about 6 KB break the bridge** in py-pglite 0.5.3. A 1536-dimension vector is
-   larger than that, so it cannot be sent from Python. Generate vectors on the server side, or use
-   smaller ones.
-3. **Roughly half native speed.** That is fine for tests and wrong for benchmarks.
-4. **Starting or stopping a manager kills every PGlite process on the machine**, including one that
-   a notebook or another test run is using.
+- PGlite serves one connection at a time, and while the notebook was being written a second
+  simultaneous connection crashed psycopg, so everything goes through one shared engine.
+- Messages above about 6 KB break the bridge in py-pglite 0.5.3, so a 1536-dimension vector cannot
+  be sent from Python. Generate vectors on the server side, or use smaller ones.
+- It runs at roughly half native speed, which is fine for tests and wrong for benchmarks.
+- Starting or stopping a manager kills every PGlite process on the machine, including one that a
+  notebook or another test run is using.
 
-## Using it as a test fixture
+## One database per test session
 
-The pattern is one database per test session. `create_all` runs once, and each test runs inside a
-transaction that is rolled back at the end, so every test starts from the same state. The fixture
-looks like this:
+`create_all` runs once per test session, and each test runs inside a transaction that is rolled back
+at the end, so every test starts from the same state:
 
 ```python
 @pytest.fixture
@@ -46,7 +40,7 @@ def session(engine):
         trans.rollback()
 ```
 
-The table below sums up when PGlite can replace a Postgres container and when it cannot.
+Against a Postgres container, PGlite compares like this:
 
 | need | PGlite | Docker Postgres |
 |---|---|---|
@@ -55,4 +49,6 @@ The table below sums up when PGlite can replace a Postgres container and when it
 | concurrency, locks, PgBouncer, replication, timings | no | yes |
 | large payloads from Python | not through py-pglite 0.5.3 | yes |
 
-The [PGlite playground notebook](../notebooks/pglite_playground.ipynb) shows each of these limits.
+::: {.chapter-notebook}
+The limits come from the [PGlite notebook](../notebooks/pglite_playground.ipynb).
+:::
