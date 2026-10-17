@@ -1,0 +1,26 @@
+<script>
+// A 3D scene starts as its recorded GIF and a button; the WebGL page loads only when the reader
+// asks for it. The recording plays in any browser, with or without WebGL.
+(() => {
+  function play(box, src) {
+    const frame = document.createElement("iframe");
+    frame.src = src || box.dataset.src;
+    frame.title = box.dataset.title || "";
+    box.replaceChildren(frame);
+    box.classList.add("live");
+  }
+  for (const box of document.querySelectorAll(".scene[data-src]")) {
+    const img = document.createElement("img");
+    img.src = box.dataset.poster;
+    img.alt = (box.dataset.title || "Scene") + ", recorded";
+    img.loading = "lazy";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "Run it live";
+    button.addEventListener("click", () => play(box));
+    box.replaceChildren(img, button);
+  }
+  // the preset chips under a scene start it on their preset
+  window.playScene = (id, src) => play(document.getElementById(id), src);
+})();
+</script>

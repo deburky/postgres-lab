@@ -31,16 +31,15 @@ after its heartbeats stop.
 The scene below replays real runs. The lab's `POST /queue/trace` endpoint starts pgqueuer workers on
 their own connections, enqueues jobs, and records each insert, each notification and each attempt.
 
-::: {.viz .column-page}
-<iframe id="queue-frame" src="../viz/queue.html?preset=skip&embed=1" loading="lazy" title="A pgqueuer run, replayed"></iframe>
+::: {#queue-frame .viz .scene .column-body-outset data-src="../viz/queue.html?preset=skip&embed=1" data-poster="../images/queue.gif" data-title="A pgqueuer run, replayed"}
 :::
 
-::: {.chips .column-page}
-<a href="#queue-frame" onclick="document.getElementById('queue-frame').src='../viz/queue.html?preset=skip&embed=1'">SKIP LOCKED</a>
-<a href="#queue-frame" onclick="document.getElementById('queue-frame').src='../viz/queue.html?preset=notify&embed=1'">NOTIFY</a>
-<a href="#queue-frame" onclick="document.getElementById('queue-frame').src='../viz/queue.html?preset=limit&embed=1'">Limit</a>
-<a href="#queue-frame" onclick="document.getElementById('queue-frame').src='../viz/queue.html?preset=retry&embed=1'">Retries</a>
-<a href="#queue-frame" onclick="document.getElementById('queue-frame').src='../viz/queue.html?preset=priority&embed=1'">Priority</a>
+::: {.chips .column-body-outset}
+<a href="#queue-frame" onclick="playScene('queue-frame', '../viz/queue.html?preset=skip&embed=1')">SKIP LOCKED</a>
+<a href="#queue-frame" onclick="playScene('queue-frame', '../viz/queue.html?preset=notify&embed=1')">NOTIFY</a>
+<a href="#queue-frame" onclick="playScene('queue-frame', '../viz/queue.html?preset=limit&embed=1')">Limit</a>
+<a href="#queue-frame" onclick="playScene('queue-frame', '../viz/queue.html?preset=retry&embed=1')">Retries</a>
+<a href="#queue-frame" onclick="playScene('queue-frame', '../viz/queue.html?preset=priority&embed=1')">Priority</a>
 <a href="../viz/queue.html" target="_blank">Open full screen</a>
 :::
 

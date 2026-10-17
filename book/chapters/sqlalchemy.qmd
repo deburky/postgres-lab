@@ -74,13 +74,12 @@ endpoint answers the same questions twice with tracing on. The **sync** run take
 another on one connection. The **async** run gives each question its own task and connection under
 `gather`. The scene below replays one such pair on a shared clock.
 
-::: {.viz .column-page}
-<iframe src="../viz/index.html?embed=1" loading="lazy" title="Vector search with pgvector, sync and async"></iframe>
+::: {.viz .scene .column-body-outset data-src="../viz/index.html?embed=1" data-poster="../images/city.gif" data-title="Vector search with pgvector, sync and async"}
 :::
-::: {.viz-caption .column-page}
+::: {.viz-caption .column-body-outset}
 Six questions, sync on the left and async on the right. Each question drops into Python (embedding
 with `bge-small`), crosses to its Postgres backend, and lights its five matching chunks in the
-documentation field as the HNSW walk returns. Press Replay to watch again.
+documentation field as the HNSW walk returns. Run it live to orbit the scene, or press Replay inside it.
 [Open full screen](../viz/index.html){target="_blank"}.
 :::
 

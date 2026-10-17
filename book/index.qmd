@@ -12,18 +12,9 @@ notebook per topic. Every number in the text comes from one of those notebooks, 
 The notebooks are in the appendix with their outputs, so you can check any claim against the run
 that produced it.
 
-::: {.viz .column-page}
-<iframe src="viz/queue.html?preset=skip&embed=1" loading="lazy" title="A job queue in Postgres, replayed"></iframe>
-:::
-::: {.viz-caption .column-page}
-A real pgqueuer run, replayed: three workers share one table through `FOR UPDATE SKIP LOCKED`.
-Drag to orbit; the other scenarios are in [the queue chapter](chapters/pgqueuer.qmd), and
-the [full-screen page](viz/queue.html){target="_blank"} has every knob.
-:::
+![](images/world.svg){.column-body-outset .hero fig-alt="An isometric ink drawing of the book as a small world: a Postgres cylinder at the centre of a plate, with five districts around it for Python, Search, Queues, Moving data, and Access and operations."}
 
 ## The map
-
-![](images/world.svg){.column-page .hero fig-alt="An isometric ink drawing of the book as a small world: a Postgres cylinder at the centre of a plate, with five districts around it for Python, Search, Queues, Moving data, and Access and operations."}
 
 ::: {.map}
 ::: {}

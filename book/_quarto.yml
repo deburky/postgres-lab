@@ -3,6 +3,7 @@ project:
   output-dir: _book
   resources:
     - viz/
+    - images/*.gif
 
 book:
   title: "The World of Postgres"
@@ -66,6 +67,7 @@ format:
     highlight-style: github
     smooth-scroll: true
     link-external-newwindow: true
+    include-after-body: scenes.html
     include-in-header:
       text: |
         <link rel="preconnect" href="https://fonts.googleapis.com">

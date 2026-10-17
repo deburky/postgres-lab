@@ -156,6 +156,16 @@ table.table, .table {
 .sidebar-item .active { color: $violet-deep !important; font-weight: 600; }
 
 // the illustrations: ink on paper already, so no frame of their own
+// a scene before it runs: the recorded GIF, and a button that loads the live page (scenes.html)
+.scene { position: relative; }
+.scene img { display: block; width: 100%; height: auto; }
+.scene button {
+  position: absolute; right: 12px; bottom: 12px;
+  font: 600 0.9rem/1 "Archivo", sans-serif; padding: 0.6rem 1rem;
+  border: 1.5px solid #6965db; border-radius: 10px; background: #6965db; color: #fff; cursor: pointer;
+}
+.scene button:hover { background: #5753c9; }
+
 img.hero { display: block; width: 100%; height: auto; margin: 0.5rem 0 1.5rem; }
 // a part's spot illustration, beside the opening paragraph of its first chapter
 img.spot { float: right; width: 240px; height: auto; margin: 0.2rem 0 0.8rem 1.2rem; }
