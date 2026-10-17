@@ -146,10 +146,14 @@ table.table, .table {
   }
   > div:nth-child(5n + 1) { background: rgba($yellow, 0.35); }
   > div:nth-child(5n + 2) { background: rgba($lime, 0.35); }
-  > div:nth-child(5n + 3) { background: rgba($sky, 0.35); }
-  > div:nth-child(5n + 4) { background: rgba(#cbb8ff, 0.35); }
-  > div:nth-child(5n + 5) { background: rgba($peach, 0.35); }
+  // the same order and colours as the districts in images/world.svg
+  > div:nth-child(5n + 3) { background: rgba(#cbb8ff, 0.35); }
+  > div:nth-child(5n + 4) { background: rgba($peach, 0.35); }
+  > div:nth-child(5n + 5) { background: rgba(#a8e6cf, 0.35); }
 }
 
 .sidebar-title, .sidebar-item-text { font-weight: 500; }
 .sidebar-item .active { color: $violet-deep !important; font-weight: 600; }
+
+// the illustrations: ink on paper already, so no frame of their own
+img.hero { display: block; width: 100%; height: auto; margin: 0.5rem 0 1.5rem; }

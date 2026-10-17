@@ -23,6 +23,8 @@ the [full-screen page](viz/queue.html){target="_blank"} has every knob.
 
 ## The map
 
+![](images/world.svg){.column-page .hero fig-alt="An isometric ink drawing of the book as a small world: a Postgres cylinder at the centre of a plate, with five districts around it for Python, Search, Queues, Moving data, and Access and operations."}
+
 ::: {.map}
 ::: {}
 **Postgres from Python**
