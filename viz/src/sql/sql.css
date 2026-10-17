@@ -1,0 +1,74 @@
+/* The SQL console in paper & ink: white paper, black ink strokes, lime for the picked chip, violet
+   only on Run. Embedded (?embed=1) it fills the iframe and the results scroll inside it. */
+:root {
+  --paper: #ffffff; --wash: #f7f7f5; --wash-2: #efefec;
+  --ink: #1e1e1e; --ink-2: #3a3a3a; --muted: #6f6f6f; --line: #1e1e1e; --line-soft: #d9d9d4;
+  --violet: #6965db; --violet-deep: #5753c9; --focus: #e9e7ff;
+  --lime: #c7ea6b; --lime-ink: #2e4a00; --peach: #ffb4a2; --yellow: #ffd166;
+  --sketch: 10px;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+p { margin: 0; }
+
+.console { max-width: 960px; margin: 0 auto; padding: 24px 16px; display: flex; flex-direction: column; gap: 12px; }
+:root[data-embed] body { height: 100vh; overflow: hidden; }
+:root[data-embed] .console { height: 100vh; padding: 12px; max-width: none; }
+:root[data-embed] .head { display: none; }
+
+.head h1 { margin: 0; font: 700 1.6rem/1.2 "Archivo", system-ui, sans-serif; letter-spacing: -0.015em; }
+.head p { margin-top: 4px; font-size: 0.9rem; color: var(--muted); }
+
+/* buttons: ghost by default, violet for Run */
+button { appearance: none; font: 600 0.88rem/1 "Archivo", system-ui, sans-serif; border: 1.5px solid var(--line); border-radius: var(--sketch); background: var(--paper); color: var(--ink); padding: 0.5rem 0.9rem; cursor: pointer; transition: transform 0.05s, background 0.12s; }
+button:hover:not(:disabled) { background: var(--wash); }
+button:active:not(:disabled) { transform: translate(1px, 1px); }
+button:disabled { opacity: 0.45; cursor: wait; }
+button.primary { background: var(--violet); border-color: var(--violet); color: #fff; padding: 0.5rem 1.3rem; }
+button.primary:hover:not(:disabled) { background: var(--violet-deep); }
+button:focus-visible, textarea:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 7px; border: 1.4px dashed var(--line-soft); border-radius: var(--sketch); }
+.chips button { padding: 0.3rem 0.65rem; font-size: 0.8rem; font-weight: 500; }
+.chips button.on { background: var(--lime); color: var(--lime-ink); font-weight: 600; }
+
+.editor { border: 1.6px solid var(--line); border-radius: var(--sketch); overflow: hidden; flex-shrink: 0; }
+.editor textarea { display: block; width: 100%; min-height: 180px; resize: vertical; border: 0; padding: 12px 14px; font: 0.84rem/1.55 var(--mono); color: var(--ink); background: var(--paper); tab-size: 2; }
+:root[data-embed] .editor textarea { min-height: 150px; height: 170px; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 10px; border-top: 1.4px solid var(--line-soft); background: var(--wash); }
+.hint { font-size: 0.75rem; color: var(--muted); }
+.pg { margin-left: auto; font-size: 0.75rem; color: var(--muted); }
+.pg:empty { display: none; }
+.status { margin-left: 8px; padding-left: 10px; border-left: 1.4px solid var(--line-soft); font-size: 0.8rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+/* results */
+.out { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+:root[data-embed] .out { flex: 1; overflow: auto; }
+.table { border: 1.6px solid var(--line); border-radius: var(--sketch); overflow: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.84rem; font-variant-numeric: tabular-nums; }
+th { position: sticky; top: 0; background: var(--yellow); text-align: left; font-weight: 600; padding: 6px 10px; border-bottom: 1.4px solid var(--line); white-space: nowrap; }
+td { padding: 5px 10px; border-bottom: 1px solid var(--line-soft); vertical-align: top; max-width: 420px; overflow-wrap: anywhere; }
+tr:last-child td { border-bottom: 0; }
+th.num { text-align: right; }
+td.num { text-align: right; font-family: var(--mono); font-size: 0.8rem; }
+td.null { color: #a8a8a3; font-style: italic; }
+.count { padding: 5px 10px; font-size: 0.75rem; color: var(--muted); border-top: 1.4px solid var(--line-soft); background: var(--wash); }
+.plan { margin: 0; padding: 12px 14px; border: 1.6px solid var(--line); border-radius: var(--sketch); background: var(--wash); font: 0.78rem/1.5 var(--mono); white-space: pre; overflow: auto; }
+.scalars { display: flex; flex-wrap: wrap; gap: 6px; }
+.scalars span { padding: 4px 10px; border: 1.4px solid var(--line); border-radius: var(--sketch); font-size: 0.8rem; background: var(--wash); }
+.scalars b { font-weight: 600; margin-right: 6px; }
+.scalars code { font: 0.78rem var(--mono); font-variant-ligatures: none; }
+.note { padding: 10px 12px; border: 1.4px dashed var(--line-soft); border-radius: var(--sketch); color: var(--muted); font-size: 0.88rem; }
+.error { padding: 10px 12px; border: 1.6px solid var(--line); border-radius: var(--sketch); background: var(--peach); font-size: 0.88rem; }
+
+@media (max-width: 600px) {
+  .hint { display: none; }
+  .pg { margin-left: 0; }
+  .status { margin-left: 0; padding-left: 0; border-left: 0; width: 100%; }
+}
+
+/* <-> and <=> are operators to type, not arrows: no programming ligatures. Last, because the font
+   shorthands above reset them */
+.editor textarea, .plan, td.num, .scalars code { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }

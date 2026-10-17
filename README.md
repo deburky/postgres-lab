@@ -48,6 +48,7 @@ app/                            FastAPI app: embedding search over the SQLAlchem
 app/jobs.py                     the same ingest as a pgqueuer job queue: one job per page, any number of workers
 viz/                            three.js: your questions answered live by pgvector HNSW, sync and async side by side on one clock
 viz/queue.html                  three.js: a traced pgqueuer run replayed: SKIP LOCKED, NOTIFY, limits, retries
+viz/sql.html                    a SQL console on PGlite (Postgres 18 + pgvector in WASM): ?lab=vectors|jsonb|pgmq
 app/queue_trace.py              runs real pgqueuer workers and records the timeline the queue scene plays
 ```
 
@@ -368,6 +369,11 @@ For the book, `npm run save-traces` (app on :8000, preview on :4173) saves the r
 asks for into `viz/public/traces/`, and `npm run build:book` builds the pages with `VITE_TRACES` set,
 so they replay those files with no server (`src/replay.ts`). `?embed=1` drops the title and knobs for
 an iframe, and `queue.html?preset=retry` opens on a scenario.
+
+`viz/sql.html` is the book's runnable SQL: [PGlite](https://pglite.dev) (Postgres 18.3 compiled to
+WebAssembly, with pgvector 0.8) in a Web Worker, seeded per chapter from `src/sql/labs.ts`, with each
+example query as a chip. The pgmq lab installs pgmq 1.13 from its plain SQL script, vendored in
+`public/sql/`. Nothing leaves the browser; the first load is about 10 MB.
 
 ## A job queue in Postgres, live (three.js)
 

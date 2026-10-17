@@ -46,6 +46,8 @@ just viz                         # http://localhost:5173 (search) and /queue.htm
 
 Running locally, the queue page's knobs are live: every Run starts real workers. The book's copies
 replay traces recorded with `npm run save-traces` and built with `npm run build:book` in `viz/`.
+The SQL consoles in the pgvector, JSONB and pgmq chapters need no server at all: they run
+[PGlite](https://pglite.dev) in the page, and `viz/src/sql/labs.ts` holds their seed data and examples.
 
 ## Building this book
 

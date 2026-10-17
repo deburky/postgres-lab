@@ -65,6 +65,22 @@ attempt, the broken one lands in the dead-letter queue after its third.
 - **Archive tables**: `pgmq.a_<name>` keeps every archived message with `archived_at`, a free audit
   log.
 
+## Try it here
+
+pgmq is plain SQL, so it installs into the in-browser Postgres below as well. A queue called `tasks`
+starts with five messages. Click the chips in order: the second read skips what the first one
+hid, and the visibility timeout example brings a message back with `read_ct` 2.
+
+::: {.viz .console .column-page}
+<iframe src="../viz/sql.html?lab=pgmq&embed=1" loading="lazy" title="pgmq SQL console"></iframe>
+:::
+
+::: {.viz-caption .column-page}
+Postgres 18 compiled to WebAssembly ([PGlite](https://pglite.dev)), running in this tab: the first
+load fetches about 10 MB, then it starts in a second or two. Your edits stay in the tab, and Reset data
+starts over. [Open full screen](../viz/sql.html?lab=pgmq){target="_blank"}.
+:::
+
 ## pgmq and pgqueuer side by side
 
 Both claim work with `FOR UPDATE SKIP LOCKED`, and neither holds a lock while the work runs. They

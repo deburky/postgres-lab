@@ -14,9 +14,12 @@
     "record:queue": "CITY_PAGE=queue node record.mjs 10",
     "record:queue-retry": "CITY_PAGE=queue CITY_PRESET=retry node record.mjs 10",
     "save-traces": "node save-traces.mjs",
+    "test:sql": "node test-sql.mjs",
     "build:book": "VITE_TRACES=./traces/ vite build --outDir ../book/viz --emptyOutDir"
   },
   "dependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@electric-sql/pglite-pgvector": "0.0.9",
     "three": "^0.185.0"
   },
   "devDependencies": {

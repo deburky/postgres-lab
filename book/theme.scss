@@ -97,6 +97,11 @@ table.table, .table {
     min-height: 420px;
     border: 0;
   }
+  // the SQL console is a document, not a scene: a fixed height that fits editor and results
+  &.console iframe {
+    aspect-ratio: auto;
+    height: 640px;
+  }
 }
 .viz-caption {
   color: $muted;

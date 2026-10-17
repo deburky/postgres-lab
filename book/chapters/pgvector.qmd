@@ -70,6 +70,22 @@ added iterative scans that keep walking until the limit is met:
 `SET hnsw.iterative_scan = relaxed_order`.
 :::
 
+## Try it here
+
+The console below is a real Postgres with pgvector 0.8. `items` holds a dozen vectors whose three
+axes mean `[fruit, tech, sport]`, and `docs` holds 2,000 random 16-dimensional ones for the index
+examples. Each chip loads a query and runs it; edit the SQL and press Run to try your own.
+
+::: {.viz .console .column-page}
+<iframe src="../viz/sql.html?lab=vectors&embed=1" loading="lazy" title="pgvector SQL console"></iframe>
+:::
+
+::: {.viz-caption .column-page}
+Postgres 18 compiled to WebAssembly ([PGlite](https://pglite.dev)), running in this tab: the first
+load fetches about 10 MB, then it starts in a second or two. Your edits stay in the tab, and Reset data
+starts over. [Open full screen](../viz/sql.html?lab=vectors){target="_blank"}.
+:::
+
 ## The doc-search app
 
 The lab's FastAPI app is this chapter in production form. `app/ingest.py` fetches 20 pages of the
