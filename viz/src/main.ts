@@ -12,6 +12,9 @@ import { fontsReady, setInkResolution } from "./neon";
 import { otherThemeName, THEME, toggleTheme } from "./theme";
 import { recorded, TRACES } from "./replay";
 import { derive, type RawScenario, type RawTrace, type Scenario } from "./trace";
+import { requireWebGL } from "./webgl";
+
+requireWebGL();
 
 const API = new URLSearchParams(location.search).get("api") ?? "http://127.0.0.1:8000";
 const PLAY_SECONDS = 6; // the longer of the two runs always plays over this long; the ratio stays true

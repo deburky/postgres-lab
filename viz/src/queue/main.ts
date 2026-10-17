@@ -12,6 +12,9 @@ import { recorded, TRACES } from "../replay";
 import { otherThemeName, THEME, toggleTheme } from "../theme";
 import { QueueScene, workerHue } from "./scene";
 import { counts, derive, type QueueConfig, type QueueTrace, type RawQueueTrace } from "./trace";
+import { requireWebGL } from "../webgl";
+
+requireWebGL();
 
 const API = new URLSearchParams(location.search).get("api") ?? "http://127.0.0.1:8000";
 const PLAY_SECONDS = 9;

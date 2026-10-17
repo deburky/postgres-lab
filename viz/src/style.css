@@ -123,3 +123,8 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-
 :root[data-embed] .queue-page .status { bottom: 110px; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* shown instead of the scene when the browser gives no WebGL context (src/webgl.ts) */
+.no-webgl { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 3; width: min(460px, calc(100vw - 32px)); padding: 16px 18px; background: var(--panel); border: 1.6px solid var(--line); border-radius: var(--sketch); font-size: 0.9rem; color: var(--ink-2); display: grid; gap: 8px; }
+.no-webgl .eyebrow { font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--bad); font-weight: 600; }
+.no-webgl code { font-size: 0.85em; background: var(--wash); padding: 0 4px; border-radius: 4px; }
