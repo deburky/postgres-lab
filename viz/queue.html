@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Job Queue in Postgres</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" />
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body class="queue-page">
+    <div id="scene"></div>
+
+    <header class="title">
+      <h1>A Job Queue in Postgres</h1>
+      <p id="subtitle">pgqueuer: FOR UPDATE SKIP LOCKED, LISTEN/NOTIFY, retries, limits</p>
+    </header>
+
+    <form id="run-form" class="knobs" autocomplete="off">
+      <p class="eyebrow">Scenario</p>
+      <div class="presets" role="group" aria-label="Presets">
+        <button type="button" data-preset="skip">SKIP LOCKED</button>
+        <button type="button" data-preset="notify">NOTIFY</button>
+        <button type="button" data-preset="limit">Limit</button>
+        <button type="button" data-preset="retry">Retries</button>
+        <button type="button" data-preset="priority">Priority</button>
+      </div>
+      <p class="eyebrow">Knobs</p>
+      <label>jobs <input name="jobs" type="number" min="1" max="200" /></label>
+      <label>workers <input name="workers" type="number" min="1" max="8" /></label>
+      <label>batch_size <input name="batch_size" type="number" min="1" max="20" /></label>
+      <label>max_concurrent_tasks <input name="max_concurrent_tasks" type="number" min="0" max="100" /></label>
+      <label>concurrency_limit <input name="concurrency_limit" type="number" min="0" max="50" /></label>
+      <label>job ms <input name="job_ms" type="number" min="1" max="2000" /></label>
+      <label>fail % <input name="fail_pct" type="number" min="0" max="100" /></label>
+      <label>retry ms <input name="retry_ms" type="number" min="10" max="5000" /></label>
+      <label>enqueue
+        <select name="enqueue"><option value="batch">one INSERT</option><option value="drip">one per job</option></select>
+      </label>
+      <label class="check"><input name="priorities" type="checkbox" /> random priorities</label>
+      <button id="run-btn" type="submit">Run</button>
+    </form>
+    <p id="status" class="status"></p>
+
+    <div id="counts" class="counts"></div>
+    <div id="workers-legend" class="legend"></div>
+
+    <div class="scrub">
+      <button type="button" id="replay-btn">Replay</button>
+      <input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Time" />
+      <span id="clock">0 ms</span>
+    </div>
+
+    <nav id="cams" aria-label="Camera">
+      <button type="button" data-cam="all">All</button>
+      <button type="button" data-cam="table">Table</button>
+      <button type="button" data-cam="workers">Workers</button>
+      <span class="sep"></span>
+      <a href="./index.html">Search</a>
+      <button type="button" id="theme-btn">Neon</button>
+    </nav>
+
+    <script type="module" src="./src/queue/main.ts"></script>
+  </body>
+</html>

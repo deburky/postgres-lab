@@ -1,0 +1,48 @@
+# PostgreSQL 18 with pgvector, pgvectorscale (diskann) and pg_vectorsearch (prism).
+# pg_vectorsearch needs Postgres 18+, so it lives in its own image next to the pg16 one.
+# Docs: https://github.com/timescale/pg_vectorsearch, https://github.com/timescale/pgvectorscale
+
+#-------------------------------------------------------------------------------
+# Build stage: pg_vectorsearch from the release tarball (C11 + meson, no .deb yet)
+#-------------------------------------------------------------------------------
+FROM pgvector/pgvector:pg18 AS build
+ARG PG_VECTORSEARCH_VERSION=0.1.0
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      ca-certificates curl build-essential meson ninja-build pkg-config \
+      postgresql-server-dev-18 libopenblas-dev; \
+    curl -fsSL -o /tmp/pgvs.tar.gz \
+      "https://github.com/timescale/pg_vectorsearch/releases/download/v${PG_VECTORSEARCH_VERSION}/pg_vectorsearch-${PG_VECTORSEARCH_VERSION}.tar.gz"; \
+    mkdir /src; tar xzf /tmp/pgvs.tar.gz -C /src --strip-components=1; \
+    cd /src; \
+    # portable build (no -march=native) so the image runs on any amd64/arm64 host; OpenBLAS speeds up RaBitQ encoding
+    meson setup builddir --buildtype=release -Dblas=enabled -Dtools=disabled; \
+    meson install -C builddir --destdir /out
+
+#-------------------------------------------------------------------------------
+# Runtime image
+#-------------------------------------------------------------------------------
+FROM pgvector/pgvector:pg18
+
+ARG PGVECTORSCALE_VERSION=0.9.1
+RUN set -eux; \
+    arch="$(dpkg --print-architecture)"; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates curl unzip libopenblas0; \
+    curl -fsSL -o /tmp/pgvectorscale.zip \
+      "https://github.com/timescale/pgvectorscale/releases/download/${PGVECTORSCALE_VERSION}/pgvectorscale-${PGVECTORSCALE_VERSION}-pg18-${arch}.zip"; \
+    unzip -o /tmp/pgvectorscale.zip -d /tmp/pgvectorscale; \
+    apt-get install -y --no-install-recommends /tmp/pgvectorscale/*.deb; \
+    rm -rf /tmp/pgvectorscale /tmp/pgvectorscale.zip /var/lib/apt/lists/*
+
+# the extension's .so, .control and SQL scripts, at the paths pg_config gave the build stage
+COPY --from=build /out/ /
+
+COPY initdb/ initdb-pg18/ /docker-entrypoint-initdb.d/
+
+ENV POSTGRES_USER=app \
+    POSTGRES_PASSWORD=pwd \
+    POSTGRES_DB=app
+
+EXPOSE 5432

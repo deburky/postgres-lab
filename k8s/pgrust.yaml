@@ -1,0 +1,39 @@
+# pgrust v0.2 (Postgres 18 in Rust, pgvector bundled) on Kubernetes. Same shape as pg16.yaml.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgrust
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: pgrust}
+  template:
+    metadata:
+      labels: {app: pgrust}
+    spec:
+      containers:
+        - name: db
+          image: malisper/pgrust:v0.2
+          env:
+            - {name: POSTGRES_USER, value: app}
+            - {name: POSTGRES_PASSWORD, value: pwd}
+            - {name: POSTGRES_DB, value: app}
+          ports: [{containerPort: 5432}]
+          readinessProbe:
+            exec: {command: ["pg_isready", "-U", "app", "-d", "app"]}
+            periodSeconds: 2
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/postgresql/data}
+            - {name: initdb, mountPath: /docker-entrypoint-initdb.d}
+      volumes:
+        - {name: data, emptyDir: {}}
+        - {name: initdb, configMap: {name: pg-initdb}}   # defined in pg16.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgrust
+spec:
+  type: NodePort
+  selector: {app: pgrust}
+  ports: [{port: 5432, targetPort: 5432, nodePort: 30018}]

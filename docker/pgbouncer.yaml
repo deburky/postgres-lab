@@ -1,0 +1,43 @@
+# PgBouncer in front of the pg16 container (docker/postgres-pgvector.yaml must be up first: it
+# joins that compose project's network and reaches Postgres as `db`).
+#
+#   docker compose -f docker/pgbouncer.yaml up -d
+#   psql "postgresql://app:pwd@localhost:6432/app"  # through the pooler
+#   psql "postgresql://app:pwd@localhost:6432/pgbouncer" -c "SHOW POOLS"  # admin console
+#   docker compose -f docker/pgbouncer.yaml down
+#
+# Image: https://github.com/edoburu/docker-pgbouncer (config from environment variables).
+name: pgbouncer-dev
+
+services:
+  pgbouncer:
+    image: edoburu/pgbouncer:v1.25.2-p0
+    container_name: pgbouncer-dev
+    environment:
+      # where PgBouncer connects; the client-facing user/password are the same
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: ${POSTGRES_USER:-app}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-pwd}
+      DB_NAME: ${POSTGRES_DB:-app}
+      AUTH_TYPE: scram-sha-256
+      POOL_MODE: transaction  # server connection is borrowed per transaction (the usual choice)
+      DEFAULT_POOL_SIZE: "10"  # server connections per (user, database) pair
+      MAX_CLIENT_CONN: "500"  # client connections PgBouncer accepts (far more than the pool)
+      RESERVE_POOL_SIZE: "0"  # keep the arithmetic in the notebook simple
+      MAX_PREPARED_STATEMENTS: "100"  # protocol-level prepared statements (1.21+), needed by psycopg 3 / asyncpg
+      ADMIN_USERS: ${POSTGRES_USER:-app}
+      STATS_USERS: ${POSTGRES_USER:-app}
+    ports:
+      - "${PGBOUNCER_PORT:-6432}:5432"
+    networks: [pg]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "5432", "-U", "${POSTGRES_USER:-app}", "-d", "${POSTGRES_DB:-app}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+networks:
+  pg:
+    name: pgvector-dev_default
+    external: true

@@ -1,0 +1,8 @@
+# GitGuardian secret scan on every commit. Needs `ggshield auth login` once, or GITGUARDIAN_API_KEY.
+repos:
+  - repo: https://github.com/GitGuardian/ggshield
+    rev: v1.56.0
+    hooks:
+      - id: ggshield
+        language_version: python3
+        stages: [pre-commit]

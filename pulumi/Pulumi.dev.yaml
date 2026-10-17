@@ -1,0 +1,19 @@
+encryptionsalt: v1:oQq8TQw+0KA=:v1:TP5ZSYfqpfFIzeYz:dJyJ8Z0BLWZNCa7RhCtwLIsk6epkUw==
+config:
+  sqlalchemy-pgvector-access:host: localhost
+  sqlalchemy-pgvector-access:port: "5432"
+  sqlalchemy-pgvector-access:username: app
+  sqlalchemy-pgvector-access:password:
+    secure: v1:zn4tgwLV6wpz94tD:h+F4HlwsMDIPgcPQYHCc/32TgQ==
+  sqlalchemy-pgvector-access:database: app
+  sqlalchemy-pgvector-access:schemas:
+    - public
+  sqlalchemy-pgvector-access:users:
+    reporter:
+      member_of: app_ro
+    ingest:
+      member_of: app_rw
+  sqlalchemy-pgvector-access:password_reporter:
+    secure: v1:XJ1OWD+0ayd3msFz:kB05UCPg8Wi+55s9jWL/JFQ0b+62tyx9p9Bi
+  sqlalchemy-pgvector-access:password_ingest:
+    secure: v1:o/KAXnmNvoQEyhbF:XXETkRiNvHY62FNTZGlfufndFFaJuqPf1A==

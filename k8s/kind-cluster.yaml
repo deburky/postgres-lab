@@ -1,0 +1,19 @@
+# kind cluster for the pgvector notebook's "k8s-pg16" / "k8s-pgrust" servers.
+# The node runs as a container ("pgbench-control-plane") inside the same Docker Desktop VM as the
+# compose containers, so it shares the same CPU cap; extraPortMappings expose the NodePort
+# services on the host, like compose's `ports:` does.
+#
+#   kind create cluster --config k8s/kind-cluster.yaml
+#   kind load docker-image sqlalchemy-pgvector-db:pg16 --name pgbench   # local image, not on a registry
+#   kubectl apply -f k8s/pg16.yaml -f k8s/pgrust.yaml
+#   kind delete cluster --name pgbench
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: pgbench
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30016   # pg16 NodePort
+        hostPort: 5434
+      - containerPort: 30018   # pgrust NodePort
+        hostPort: 5435

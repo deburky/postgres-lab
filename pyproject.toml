@@ -1,0 +1,55 @@
+[project]
+name = "postgres-lab"
+version = "0.1.0"
+description = "Postgres SQLAlchemy with pgvector"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "alembic>=1.19.1",
+    "asyncpg>=0.31.0",
+    "en-core-web-sm",
+    "fastapi>=0.141.1",
+    "fastembed>=0.8.0",
+    "numpy>=2.5.2",
+    "pgqueuer>=1.6.0",
+    "pgvector>=0.5.0",
+    "psycopg[binary]>=3.3.5",
+    "pydantic-settings>=2.15.0",
+    "spacy>=3.8.16",
+    "sqlalchemy[asyncio]>=2.0.52",
+    "uvicorn>=0.52.4",
+]
+
+[dependency-groups]
+dev = [
+    "adbc-driver-manager>=1.4",
+    "adbc-driver-postgresql>=1.4",
+    "docker>=7.2.0",
+    "ipykernel>=7.3.0",
+    "mypy>=2.3.1",
+    "pandas>=3.0.5",
+    "papermill>=2.7.0",
+    "pgpq>=0.12.0",
+    "pre-commit>=4.7.0",
+    "py-pglite[extensions,psycopg,sqlalchemy]>=0.5.3",
+    "pyarrow>=19.0",
+    "pymysql>=1.2.3",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "python-dotenv>=1.2.3",
+    "ruff>=0.16.6",
+    "ty>=0.0.78",
+]
+pulumi = [
+    "pulumi>=3.261.0",
+    "pulumi-postgresql>=3.18.0",
+]
+sesame = [
+    "pgsesame>=0.3.0",
+]
+
+[tool.uv]
+default-groups = ["dev", "pulumi", "sesame"]
+
+[tool.uv.sources]
+en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }

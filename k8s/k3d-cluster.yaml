@@ -1,0 +1,32 @@
+# k3d cluster for the pgvector notebook's "k3d-pg16" / "k3d-pgrust" servers: the same manifests as
+# the kind cluster (k8s/pg16.yaml, k8s/pgrust.yaml), on k3s instead of kubeadm.
+#
+# How it differs from kind (k8s/kind-cluster.yaml):
+# - k3s is a single ~70 MB binary; the node image is ~250 MB against kind's 1.3 GB, and the
+#   cluster is up in ~15 s instead of ~60 s.
+# - k3d puts a small load-balancer container (k3d-pgbench-serverlb) in front of the node; host
+#   ports are published there, so the port mapping below says "@loadbalancer" and the notebook
+#   looks for that container rather than the node.
+# - k3s ships Traefik and a local-path storage class by default; neither is used here.
+#
+#   k3d cluster create --config k8s/k3d-cluster.yaml
+#   k3d image import sqlalchemy-pgvector-db:pg16 --cluster pgbench   # local image, not on a registry
+#   kubectl apply -f k8s/pg16.yaml -f k8s/pgrust.yaml
+#   kubectl get pods -w
+#   k3d cluster delete pgbench
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: pgbench
+servers: 1
+agents: 0
+ports:
+  - port: 5436:30016   # host 5436 -> NodePort 30016 (pg16), via the load balancer
+    nodeFilters: [loadbalancer]
+  - port: 5437:30018   # host 5437 -> NodePort 30018 (pgrust)
+    nodeFilters: [loadbalancer]
+options:
+  k3s:
+    extraArgs:
+      - arg: --disable=traefik   # nothing here needs an ingress controller
+        nodeFilters: [server:*]

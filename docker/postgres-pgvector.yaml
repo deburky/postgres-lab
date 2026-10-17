@@ -1,0 +1,129 @@
+# Local Postgres 16 + pgvector. From the project root:
+#   docker compose -f docker/postgres-pgvector.yaml up -d --build
+# (or plain `docker compose up -d` thanks to COMPOSE_FILE in .env)
+#
+# --profile replica adds a second pg16 (port 5440) that subscribes to this one with logical
+# replication: see notebooks/logical_replication.ipynb. The source runs with wal_level=logical
+# for that; it costs a little extra WAL and nothing else.
+name: pgvector-dev
+
+services:
+  db:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sqlalchemy-pgvector-db:pg16
+    container_name: pgvector-dev
+    environment:
+      # Only what Postgres needs; the rest of .env (DATABASE_URL, PYTHONPATH, ...) stays on the host.
+      # ${VAR} is read from the root .env by Compose interpolation.
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pwd}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    # logical decoding on, so a replica (below), Debezium or DMS can subscribe; needs a restart to change
+    command: ["postgres", "-c", "wal_level=logical"]
+    volumes:
+      # Named volume so data survives `docker compose down`.
+      # Use `docker compose down -v` to wipe it and re-run the initdb scripts.
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # the subscriber: same image (pgvector installed, so vector columns replicate), its own data,
+  # reachable from the host on 5440 and from `db` as `replica` on the compose network
+  replica:
+    image: sqlalchemy-pgvector-db:pg16
+    container_name: pgvector-replica
+    profiles: [replica]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pwd}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+    ports:
+      - "${REPLICA_PORT:-5440}:5432"
+    volumes:
+      - pgdata_replica:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Apache Doris as a CDC target: --profile doris adds one FE (SQL, metadata, the streaming-job
+  # scheduler) and one BE (storage, queries, and the CDC client that reads this Postgres's WAL).
+  # The images insist on fixed IPs in FE_SERVERS / BE_ADDR, hence the `doris` network; both nodes
+  # also join the default network so their JDBC connections reach Postgres as `db`.
+  # MySQL protocol on 9030 (root, no password), web UI on 8030. See notebooks/doris_cdc.ipynb.
+  doris-fe:
+    image: apache/doris:fe-4.1.4
+    container_name: doris-fe
+    profiles: [doris]
+    # fe.conf ships with an 8 GB heap (-Xmx8192m -Xms8192m), more than Docker Desktop's whole VM;
+    # 1 GB is plenty for one database and a few jobs
+    entrypoint: ["bash", "-c", "sed -i 's/-Xmx8192m -Xms8192m/-Xmx${DORIS_FE_HEAP:-1g}/' /opt/apache-doris/fe/conf/fe.conf && exec bash init_fe.sh"]
+    environment:
+      FE_SERVERS: fe1:172.30.80.2:9010
+      FE_ID: 1
+    ports:
+      - "${DORIS_HTTP_PORT:-8030}:8030"
+      - "${DORIS_PORT:-9030}:9030"
+    volumes:
+      - doris_fe_meta:/opt/apache-doris/fe/doris-meta
+    networks:
+      default:
+      doris:
+        ipv4_address: 172.30.80.2
+    healthcheck:
+      # healthy once a BE has registered and is alive (column 10 of SHOW BACKENDS)
+      test: ["CMD-SHELL", "mysql -uroot -h127.0.0.1 -P9030 -N -e 'SHOW BACKENDS' | awk -F'\\t' '$$10 == \"true\"' | grep -q ."]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+    depends_on:
+      db:
+        condition: service_healthy
+
+  doris-be:
+    image: apache/doris:be-4.1.4
+    container_name: doris-be
+    profiles: [doris]
+    # the BE sizes itself to 90% of the VM's memory and then cancels queries when other containers
+    # leave it short; a fixed mem_limit keeps it inside a budget, and without the page cache it stays
+    # there across runs (2G was not enough: a 20k-row catch-up hit it). The CDC client JVM, about
+    # 1 GB, comes on top.
+    entrypoint: ["bash", "-c", "grep -q '^mem_limit' /opt/apache-doris/be/conf/be.conf || printf 'mem_limit = ${DORIS_BE_MEM:-3G}\\ndisable_storage_page_cache = true\\n' >> /opt/apache-doris/be/conf/be.conf; exec bash entry_point.sh"]
+    environment:
+      FE_SERVERS: fe1:172.30.80.2:9010
+      BE_ADDR: 172.30.80.3:9050
+      # Docker Desktop's VM keeps vm.max_map_count at 262144; the BE wants 2000000 for production
+      # and refuses to start without this. Fine for a playground.
+      SKIP_CHECK_ULIMIT: "true"
+    volumes:
+      - doris_be_storage:/opt/apache-doris/be/storage
+    networks:
+      default:
+      doris:
+        ipv4_address: 172.30.80.3
+    depends_on:
+      - doris-fe
+
+networks:
+  doris:
+    ipam:
+      config:
+        - subnet: 172.30.80.0/24
+
+volumes:
+  pgdata:
+  pgdata_replica:
+  doris_fe_meta:
+  doris_be_storage:

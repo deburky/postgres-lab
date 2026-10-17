@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vector Search with pgvector</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" />
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <div id="scene"></div>
+
+    <header class="title">
+      <h1>Vector Search with pgvector</h1>
+    </header>
+
+    <form id="ask-form" class="ask" autocomplete="off">
+      <textarea id="questions" rows="4" placeholder="One question per line…" aria-label="Questions"></textarea>
+      <button id="ask-btn" type="submit">Ask</button>
+    </form>
+    <p id="status" class="status"></p>
+
+    <div id="times" class="times"></div>
+
+    <nav id="cams" aria-label="Camera">
+      <button type="button" data-cam="both">Both</button>
+      <button type="button" data-cam="sync">Sync</button>
+      <button type="button" data-cam="async">Async</button>
+      <button type="button" data-cam="docs">Docs</button>
+      <span class="sep"></span>
+      <a href="./queue.html">Queue</a>
+      <button type="button" id="theme-btn">Neon</button>
+    </nav>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

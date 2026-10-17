@@ -1,0 +1,36 @@
+# pgrust: Postgres 18 rewritten in Rust (https://github.com/malisper/pgrust).
+# Drop-in replacement for the official postgres image: same env vars, same
+# /docker-entrypoint-initdb.d, same data path. Runs on port 5433 so it can sit
+# next to the pgvector container.
+#
+#   docker compose -f docker/pgrust.yaml up -d
+#   docker compose -f docker/pgrust.yaml exec db psql -U app -d app
+#
+# v0.2 notes: there is no extension ABI, so third-party extensions in general do
+# not load. pgvector 0.8.5 is bundled natively though, and the pgvector smoke
+# test plus all JSONB examples run unchanged against it.
+name: pgrust-dev
+
+services:
+  db:
+    image: malisper/pgrust:v0.2
+    container_name: pgrust-dev
+    environment:
+      # Only what Postgres needs; the rest of .env (DATABASE_URL, PYTHONPATH, ...) stays on the host.
+      # ${VAR} is read from the root .env by Compose interpolation.
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pwd}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+    ports:
+      - "${PGRUST_PORT:-5433}:5432"
+    volumes:
+      - pgrustdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgrustdata:

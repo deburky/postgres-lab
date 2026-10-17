@@ -1,0 +1,114 @@
+/* White paper, black ink, straight strokes, sticky-note colours for the few numbers that matter,
+   and violet on exactly one thing per page: the primary button (Ask, Run). ?theme=neon swaps the
+   variables for the night city and keeps the shapes. */
+:root {
+  --paper: #ffffff; --wash: #f7f7f5; --wash-2: #efefec;
+  --ink: #1e1e1e; --ink-2: #3a3a3a; --muted: #6f6f6f; --line: #1e1e1e; --line-soft: #d9d9d4;
+  --violet: #6965db; --violet-deep: #5753c9; --focus: #e9e7ff;
+  --lime: #c7ea6b; --lime-ink: #2e4a00; --yellow: #ffd166; --yellow-ink: #5a3e00; --peach: #ffb4a2;
+  --ok: #1f8a6b; --bad: #c0392b;
+  --panel: #ffffff;
+  --sketch: 10px;
+}
+:root[data-theme="neon"] {
+  --paper: #1c232e; --wash: #252e3b; --wash-2: #2d3746;
+  --ink: #e6e9ee; --ink-2: #c9d1de; --muted: #8fa6d6; --line: #3b5b9a; --line-soft: #2b3a57;
+  --violet: #6965db; --violet-deep: #5753c9; --focus: #3b3f8f;
+  --lime: #19f0d0; --lime-ink: #04322b; --yellow: #ff8a1f; --yellow-ink: #3a1d00; --peach: #ff3b5c;
+  --panel: rgba(20, 26, 36, 0.9);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--paper); color: var(--ink); font: 15px/1.5 "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; overflow: hidden; }
+#scene { position: fixed; inset: 0; }
+#scene canvas { display: block; }
+p { margin: 0; }
+
+/* the shared card: every floating panel is one */
+.ask, .knobs, .scrub, #cams, .times span, .counts span, .legend span {
+  background: var(--panel); border: 1.6px solid var(--line); border-radius: var(--sketch);
+}
+
+/* title */
+.title { position: fixed; top: 0; left: 0; right: 0; z-index: 2; text-align: center; padding: 18px 16px 6px; pointer-events: none; }
+.title h1 { margin: 0; color: var(--ink); font: 700 1.6rem/1.2 "Archivo", system-ui, sans-serif; letter-spacing: -0.015em; }
+.title p { margin-top: 4px; font-size: 0.8rem; color: var(--muted); }
+
+/* buttons: ghost by default, violet for the one primary action */
+button, #cams a { appearance: none; font: 600 0.9rem/1 "Archivo", system-ui, sans-serif; border: 1.5px solid var(--line); border-radius: var(--sketch); background: var(--paper); color: var(--ink); padding: 0.55rem 0.95rem; cursor: pointer; text-decoration: none; transition: transform 0.05s, background 0.12s; }
+button:hover:not(:disabled), #cams a:hover { background: var(--wash); }
+button:active:not(:disabled) { transform: translate(1px, 1px); }
+button:disabled { opacity: 0.45; cursor: wait; }
+.ask button, .knobs > button { background: var(--violet); border-color: var(--violet); color: #fff; }
+.ask button:hover:not(:disabled), .knobs > button:hover:not(:disabled) { background: var(--violet-deep); }
+button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-visible, #cams a:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
+
+/* the ask box (search city) */
+.ask { position: fixed; top: 74px; left: 50%; transform: translateX(-50%); z-index: 2; width: 640px; display: flex; gap: 8px; align-items: stretch; padding: 8px; }
+.ask textarea { flex: 1; resize: vertical; overflow: hidden; font: 0.92rem/1.5 "Archivo", system-ui, sans-serif; padding: 0.5rem 0.7rem; border: 1.4px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink); }
+.ask textarea::placeholder { color: #a8a8a3; }
+.ask button { padding: 0 1.2rem; }
+.status { position: fixed; top: 190px; left: 50%; transform: translateX(-50%); text-align: center; z-index: 2; max-width: 380px; font-size: 0.85rem; color: var(--bad); }
+
+/* the two wall times (search city), as hero tiles: yellow then lime */
+.times { position: fixed; top: 74px; right: 16px; z-index: 2; display: flex; gap: 8px; }
+.times span { padding: 0.6rem 0.9rem; font-size: 0.72rem; color: var(--ink-2); min-width: 110px; }
+.times b { display: block; margin-top: 2px; font: 700 1.45rem/1.05 "Archivo", sans-serif; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.times span:first-child { background: var(--yellow); }
+.times span:last-child { background: var(--lime); }
+:root[data-theme="neon"] .times span { background: var(--panel); }
+:root[data-theme="neon"] .times span:first-child b { color: var(--yellow); }
+:root[data-theme="neon"] .times span:last-child b { color: var(--lime); }
+
+/* camera presets and page links */
+#cams { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 2; display: flex; gap: 4px; padding: 5px; }
+#cams button, #cams a { border-color: transparent; padding: 0.45rem 0.8rem; font-size: 0.85rem; color: var(--muted); }
+#cams button:hover, #cams a:hover { color: var(--ink); border-color: var(--line-soft); background: var(--paper); }
+#cams .sep { width: 1.5px; margin: 4px 3px; background: var(--line-soft); }
+
+/* queue.html: knobs on the left */
+.knobs { position: fixed; top: 74px; left: 16px; z-index: 2; width: 252px; display: grid; grid-template-columns: 1fr auto; gap: 7px 8px; align-items: center; padding: 12px; font-size: 0.8rem; font-weight: 600; color: var(--ink-2); }
+.knobs .eyebrow { grid-column: 1 / -1; font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 2px 0 0; }
+.knobs label { display: contents; }
+.knobs input[type="number"], .knobs select { width: 96px; font: 500 0.88rem "Archivo", sans-serif; font-variant-numeric: tabular-nums; padding: 0.3rem 0.5rem; border: 1.4px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink); }
+.knobs .check { display: flex; gap: 6px; align-items: center; grid-column: 1 / -1; font-weight: 500; }
+.knobs input[type="checkbox"] { accent-color: var(--ink); width: 15px; height: 15px; }
+.knobs > button { grid-column: 1 / -1; padding: 0.65rem; margin-top: 4px; font-size: 0.95rem; }
+/* presets: the app's chips, lime when picked */
+.presets { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 5px; padding: 6px; border: 1.4px dashed var(--line-soft); border-radius: var(--sketch); }
+.presets button { padding: 0.25rem 0.6rem; font-size: 0.8rem; font-weight: 500; }
+.presets button.on { background: var(--lime); color: var(--lime-ink); font-weight: 600; }
+.queue-page .status { top: auto; bottom: 120px; }
+
+/* counters: tiles; the numbers that matter get a sticky note when they are not zero */
+.counts { position: fixed; top: 74px; right: 16px; z-index: 2; display: grid; grid-template-columns: repeat(3, 112px); gap: 8px; }
+.counts span { padding: 0.55rem 0.8rem; font-size: 0.72rem; color: var(--muted); }
+.counts b { display: block; font: 700 1.45rem/1.05 "Archivo", sans-serif; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.counts span.run { background: var(--yellow); color: var(--yellow-ink); }
+.counts span.ok { background: var(--lime); color: var(--lime-ink); }
+.counts span.bad { background: var(--peach); color: #5a1d12; }
+:root[data-theme="neon"] .counts span.run, :root[data-theme="neon"] .counts span.ok, :root[data-theme="neon"] .counts span.bad { background: var(--panel); color: var(--muted); }
+:root[data-theme="neon"] .counts span.run b { color: var(--yellow); }
+:root[data-theme="neon"] .counts span.ok b { color: var(--lime); }
+:root[data-theme="neon"] .counts span.bad b { color: var(--peach); }
+
+.legend { position: fixed; top: 212px; right: 16px; z-index: 2; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; font-size: 0.8rem; color: var(--ink-2); }
+.legend span { display: flex; gap: 8px; align-items: center; padding: 0.3rem 0.7rem; border-width: 1.4px; }
+.legend i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; border: 1.4px solid var(--line); }
+.legend em { font-style: normal; color: var(--muted); margin-left: 4px; font-variant-numeric: tabular-nums; }
+
+/* the scrub bar */
+.scrub { position: fixed; bottom: 68px; left: 50%; transform: translateX(-50%); z-index: 2; width: 540px; display: flex; gap: 12px; align-items: center; padding: 6px 12px 6px 6px; }
+.scrub input { flex: 1; accent-color: var(--ink); }
+.scrub span { font: 600 0.82rem "Archivo", sans-serif; font-variant-numeric: tabular-nums; color: var(--muted); min-width: 64px; text-align: right; }
+
+@media (max-width: 900px) {
+  .ask { width: calc(100vw - 32px); }
+  .times { top: auto; bottom: 64px; }
+  .knobs { top: auto; bottom: 120px; width: calc(100vw - 32px); grid-template-columns: repeat(4, auto); }
+  .knobs label { display: flex; flex-direction: column; gap: 2px; }
+  .counts { top: 64px; grid-template-columns: repeat(3, auto); }
+  .legend { display: none; }
+  .scrub { width: calc(100vw - 32px); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

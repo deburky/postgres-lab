@@ -1,0 +1,62 @@
+# Access as code with pgsesame: the same roles and grants as pulumi/__main__.py, as one YAML file.
+#
+#   just sesame plan pg18      # the SQL that would make the database match (exit 2 = changes)
+#   just sesame apply pg18     # run it, in one transaction
+#   just sesame plan pg18      # again: empty, so nothing drifted
+#
+# Like the Pulumi stack, it owns *who may do what* and nothing else: tables, schemas and
+# extensions stay with the application. Passwords come from the environment (.env), never this file.
+version: 1
+engine: postgres
+
+principals:
+  # group roles (NOLOGIN): the privilege sets; users get access by membership, never directly
+  app_ro:
+    type: role
+    privileges:
+      schemas: {usage: [public]}
+      tables: {select: [public.*]}
+
+  app_rw:
+    type: role
+    privileges:
+      schemas: {usage: [public]}
+      tables:
+        select: [public.*]
+        insert: [public.*]
+        update: [public.*]
+        delete: [public.*]
+      sequences:
+        usage: [public.*]
+        select: [public.*]
+        update: [public.*]
+
+  # login roles: people and services, each in exactly one group
+  reporter:
+    type: user
+    password_env: SESAME_REPORTER_PASSWORD
+    member_of: [app_ro]
+
+  ingest:
+    type: user
+    password_env: SESAME_INGEST_PASSWORD
+    member_of: [app_rw]
+
+# objects `app` creates later get the same grants, without a new plan
+default_privileges:
+  - owner: app
+    schema: public
+    grantee: app_ro
+    tables: [select]
+  - owner: app
+    schema: public
+    grantee: app_rw
+    tables: [select, insert, update, delete]
+  - owner: app
+    schema: public
+    grantee: app_rw
+    sequences: [usage, select, update]
+
+manage:
+  # `app` is the compose superuser that runs the plan; declared so pgsesame does not flag it
+  superusers: [app]

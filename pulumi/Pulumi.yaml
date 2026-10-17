@@ -1,0 +1,7 @@
+name: sqlalchemy-pgvector-access
+description: Postgres roles and grants for the playground database, as code (pulumi-postgresql)
+runtime:
+  name: python
+  options:
+    # Reuse the project's uv-managed venv (root pyproject, dependency group "pulumi").
+    virtualenv: ../.venv

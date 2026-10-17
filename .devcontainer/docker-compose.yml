@@ -1,0 +1,18 @@
+# Layered on top of docker/postgres-pgvector.yaml by devcontainer.json: adds the `dev` service
+# next to the existing `db` service and puts them on the same network.
+services:
+  dev:
+    image: mcr.microsoft.com/devcontainers/python:3.12
+    command: sleep infinity
+    volumes:
+      - ..:/workspaces/postgres-lab:cached
+      # Linux-native venv, separate from the macOS/Windows .venv on the host (binary wheels differ).
+      - dev-venv:/workspaces/postgres-lab/.venv
+      - uv-cache:/home/vscode/.cache/uv
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  dev-venv:
+  uv-cache:

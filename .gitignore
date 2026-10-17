@@ -1,0 +1,40 @@
+# Python-generated files
+__pycache__/
+.mypy_cache/
+.ruff_cache/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Local environment
+.env
+
+# macOS
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Pulumi local state / plugin cache
+pulumi/.pulumi/
+
+# generated traces / executed notebooks; the recorded GIFs are kept for the README
+out/*
+!out/city.gif
+!out/queue.gif
+!out/queue-retry.gif
+
+# viz (three.js app)
+viz/node_modules/
+viz/dist/
+
+# design reference copied from another project, not part of this one
+docs/leads-intake/
+
+# editor settings
+.vscode/

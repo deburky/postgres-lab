@@ -1,0 +1,49 @@
+# Postgres 16 + pgvector (the image built by docker/Dockerfile) on Kubernetes.
+# emptyDir storage: data lives as long as the pod, which is all a benchmark needs.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pg-initdb
+data:
+  01-enable-pgvector.sql: |
+    CREATE EXTENSION IF NOT EXISTS vector;
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pg16
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: pg16}
+  template:
+    metadata:
+      labels: {app: pg16}
+    spec:
+      containers:
+        - name: db
+          image: sqlalchemy-pgvector-db:pg16
+          imagePullPolicy: Never   # loaded with `kind load docker-image`
+          env:
+            - {name: POSTGRES_USER, value: app}
+            - {name: POSTGRES_PASSWORD, value: pwd}
+            - {name: POSTGRES_DB, value: app}
+          ports: [{containerPort: 5432}]
+          readinessProbe:
+            exec: {command: ["pg_isready", "-U", "app", "-d", "app"]}
+            periodSeconds: 2
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/postgresql/data}
+            - {name: initdb, mountPath: /docker-entrypoint-initdb.d}
+      volumes:
+        - {name: data, emptyDir: {}}
+        - {name: initdb, configMap: {name: pg-initdb}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pg16
+spec:
+  type: NodePort
+  selector: {app: pg16}
+  ports: [{port: 5432, targetPort: 5432, nodePort: 30016}]
