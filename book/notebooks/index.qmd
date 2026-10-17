@@ -15,3 +15,4 @@ when the book is built; to run one yourself, see [Running the lab](../chapters/r
 | [pgmq playground](pgmq_playground.ipynb) | [A message queue](../chapters/pgmq.qmd) | pg18 |
 | [Logical replication](logical_replication.ipynb) | [CDC](../chapters/logical-replication.qmd) | pg16 + replica |
 | [Doris CDC](doris_cdc.ipynb) | [Doris](../chapters/doris.qmd) | pg16 + Doris |
+| [pg_ducklake playground](pg_ducklake_playground.ipynb) | [A lakehouse table](../chapters/ducklake.qmd) | ducklake |

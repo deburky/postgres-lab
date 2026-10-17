@@ -36,6 +36,7 @@ book:
       chapters:
         - chapters/logical-replication.qmd
         - chapters/doris.qmd
+        - chapters/ducklake.qmd
     - part: "Access and operations"
       chapters:
         - chapters/access.qmd
@@ -52,6 +53,7 @@ book:
     - notebooks/pgmq_playground.ipynb
     - notebooks/logical_replication.ipynb
     - notebooks/doris_cdc.ipynb
+    - notebooks/pg_ducklake_playground.ipynb
 
 format:
   html:

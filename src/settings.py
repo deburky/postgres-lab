@@ -16,7 +16,7 @@ from pydantic import Field, MySQLDsn, PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Server = Literal[
-    "pg16", "pg18", "pgrust", "pgbouncer", "replica",
+    "pg16", "pg18", "pgrust", "pgbouncer", "replica", "ducklake",
     "k8s-pg16", "k8s-pgrust", "k3d-pg16", "k3d-pgrust", "k3s-pg16", "k3s-pgrust",
 ]
 
@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     pg18_database_url: PostgresDsn = Field(
         "postgresql+psycopg://app:pwd@localhost:5441/app",
         description="pg18 + pgvector + pgvectorscale + pg_vectorsearch (docker/pg18.yaml)",
+    )
+    ducklake_database_url: PostgresDsn = Field(
+        "postgresql+psycopg://app:pwd@localhost:5443/app",
+        description="pg18 + pg_ducklake: DuckLake tables on Parquet (docker/ducklake.yaml)",
     )
     pgrust_database_url: PostgresDsn = Field(
         "postgresql+psycopg://app:pwd@localhost:5433/app",
@@ -112,6 +116,7 @@ class Settings(BaseSettings):
             "pgrust": self.pgrust_database_url,
             "pgbouncer": self.pgbouncer_database_url,
             "replica": self.replica_database_url,
+            "ducklake": self.ducklake_database_url,
             "k8s-pg16": self.k8s_pg16_database_url,
             "k8s-pgrust": self.k8s_pgrust_database_url,
             "k3d-pg16": self.k3d_pg16_database_url,

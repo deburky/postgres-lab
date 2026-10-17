@@ -30,7 +30,7 @@ var a;
 a = P(6, 6, 5); card(330, 800, "Postgres from Python", "SQLAlchemy, JSONB, PgBouncer, PGlite", "r", a[0], a[1]);
 a = P(59.8, 4.8, 11); card(1235, 700, "Search", "pgvector, three indexes, bulk loading", "b", a[0], a[1]);
 a = P(6.5, 58, 6); card(150, 330, "Queues", "pgqueuer and pgmq", "t", a[0], a[1]);
-a = P(53, 32, 4); card(1180, 320, "Moving data", "logical replication, Doris", "l", a[0] + 1.2247*4.5*S, a[1]);
+a = P(53, 32, 4); card(1180, 320, "Moving data", "replication, Doris, DuckLake", "l", a[0] + 1.2247*4.5*S, a[1]);
 a = P(58.8, 50.6, 9.4); card(1000, 200, "Access and operations", "access as code, Kubernetes", "l", a[0], a[1]);
 var pg = text("Postgres 18", MONO, 15, INK);
 pg.position = [700 - pg.width/2, 514];

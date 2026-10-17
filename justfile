@@ -16,7 +16,7 @@ default:
     @just --list --unsorted
 
 # -------------------------------------------------------------------------------
-# Databases in compose: pg16 (pgvector + pgvectorscale), pg18 (+ pg_vectorsearch), its logical-replication replica, Doris, pgrust, pgbouncer
+# Databases in compose: pg16 (pgvector + pgvectorscale), pg18 (+ pg_vectorsearch), its logical-replication replica, Doris, pgrust, pgbouncer, ducklake
 # -------------------------------------------------------------------------------
 _compose server:
     @case {{ server }} in \
@@ -26,7 +26,8 @@ _compose server:
       doris) echo "-f docker/postgres-pgvector.yaml --profile doris" ;; \
       pgrust) echo "-f docker/pgrust.yaml" ;; \
       pgbouncer) echo "-f docker/pgbouncer.yaml" ;; \
-      *) echo "server must be pg16, pg18, replica, doris, pgrust or pgbouncer" >&2; exit 1 ;; \
+      ducklake) echo "-f docker/ducklake.yaml" ;; \
+      *) echo "server must be pg16, pg18, replica, doris, pgrust, pgbouncer or ducklake" >&2; exit 1 ;; \
     esac
 
 # start a compose server (pg16 and pg18 build their images on first use): just db pg18, just db replica, just db doris
@@ -208,7 +209,7 @@ sesame-import server="pg18":
 [group('book')]
 book-notebooks:
     cp out/pgvector_pg18.ipynb book/notebooks/pgvector_playground.ipynb
-    cp out/pgqueuer_playground.ipynb out/pgmq_playground.ipynb out/doris_cdc.ipynb out/logical_replication.ipynb out/pglite_playground.ipynb book/notebooks/
+    cp out/pgqueuer_playground.ipynb out/pgmq_playground.ipynb out/doris_cdc.ipynb out/pg_ducklake_playground.ipynb out/logical_replication.ipynb out/pglite_playground.ipynb book/notebooks/
     cp notebooks/sync_vs_async.ipynb notebooks/jsonb_playground.ipynb notebooks/pgbouncer_playground.ipynb book/notebooks/
 
 # the book: the replaying viz into book/viz, then quarto into book/_book (CI does the same on push)

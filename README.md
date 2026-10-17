@@ -36,9 +36,11 @@ notebooks/                      all the notebooks, one folder:
   pglite_playground.ipynb         PGlite (Postgres in WebAssembly) via py-pglite for tests, with its limits
   logical_replication.ipynb       CDC without Debezium: a second pg16 subscribed to the first; changes, lag, the failure modes
   doris_cdc.ipynb                 the same stream into Apache Doris with its built-in CDC job: types, latency, vectors, DDL
+  pg_ducklake_playground.ipynb    DuckLake tables inside Postgres: heap vs Parquet, inlining, time travel, change feed, joins
   pgqueuer_playground.ipynb       pgqueuer taken apart: SKIP LOCKED, NOTIFY, retries, limits, transactional enqueue, drivers
 src/examples/jsonb/             the JSONB examples as 4 runnable scripts, with a README
 docker/pgbouncer.yaml           PgBouncer 1.25 in front of pg16 on port 6432, transaction pooling
+docker/ducklake.yaml            pg18 + pg_ducklake 1.0.2 (upstream image), container `ducklake-dev` on port 5443
 justfile                        every command in this README as a `just` recipe; `just` lists them
 k8s/                            kind and k3d cluster configs, manifests, and k3s.py: k3s in one container from the Docker SDK
 pulumi/                         access as code: roles, grants, default privileges via pulumi-postgresql
@@ -460,6 +462,25 @@ sized to 90% of memory, which on Docker Desktop ends in `MEM_LIMIT_EXCEEDED`. Th
 them (`DORIS_FE_HEAP`, default 1g; `DORIS_BE_MEM`, default 3G, page cache off) at about 3.5 GB for the
 pair plus the CDC client under load. The BE also skips its `vm.max_map_count` check
 (`SKIP_CHECK_ULIMIT`), which is fine for a playground only.
+
+## Columnar tables inside Postgres: pg_ducklake
+
+[pg_ducklake](https://github.com/relytcloud/pg_ducklake) adds `CREATE TABLE ... USING ducklake`: the
+rows go to Parquet files, the [DuckLake](https://ducklake.select) catalog lives in the `ducklake`
+schema of the same database, and DuckDB runs the queries inside the backend. `just db ducklake`
+starts the upstream image `pgducklake/pgducklake:18-v1.0.2` on port 5443, with the Parquet files
+inside the data volume; `just nb pg_ducklake_playground` measures it on 5 million events:
+
+| | heap | DuckLake |
+|---|---|---|
+| on disk | 301 MB + 107 MB primary key | 78 MB, one Parquet file |
+| sum by device / daily distinct users / top users | 159 / 1,618 / 453 ms | 33 / 774 / 52 ms |
+| one row by id | 0.12 ms | 13 ms |
+
+It also covers small-insert inlining, delete files, snapshots and `time_travel`, the
+`table_changes` feed, partitions (no gain on a local disk at this size) and joins with heap tables.
+In 1.0.2, `table_changes` over a range that contains a delete fails and leaves the connection
+without its catalog until it reconnects.
 
 ## The app: doc search + summary, no LLM
 

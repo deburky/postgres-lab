@@ -1,0 +1,31 @@
+# Postgres 18 + pg_ducklake 1.0.2 (DuckLake tables: Parquet data, catalog in Postgres, DuckDB as the
+# engine), on port 5443. The upstream image preloads the library and creates the extension in
+# POSTGRES_DB.
+#   docker compose -f docker/ducklake.yaml up -d      (or: just db ducklake)
+#
+# With ducklake.default_table_path unset, the Parquet files live inside the data directory
+# (pg_ducklake/<schema>/<table>/), so the one volume holds both the catalog and the data.
+name: ducklake-dev
+
+services:
+  db:
+    image: pgducklake/pgducklake:18-v1.0.2
+    container_name: ducklake-dev
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pwd}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+    ports:
+      - "${DUCKLAKE_PORT:-5443}:5432"
+    shm_size: 1g
+    volumes:
+      - ducklakedata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  ducklakedata:

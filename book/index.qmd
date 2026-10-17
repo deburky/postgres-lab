@@ -44,7 +44,8 @@ Two designs for a queue in a table: pgqueuer's heartbeats and pgmq's visibility 
 ::: {}
 **Moving data**
 
-Logical replication from one Postgres to another, and into Apache Doris with its built-in CDC.
+Logical replication from one Postgres to another, into Apache Doris with its built-in CDC, and
+columnar DuckLake tables inside Postgres itself.
 :::
 ::: {}
 **Access and operations**
