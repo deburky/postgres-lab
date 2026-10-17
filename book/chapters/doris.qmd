@@ -22,7 +22,7 @@ FROM POSTGRES (
 TO DATABASE pg_mirror ("table.create.properties.replication_num" = "1");
 ```
 
-## What the lab found
+## Changes arrive in seconds, schema changes included
 
 The lab runs one Doris frontend and one backend next to pg16 and points a job at the project's
 tables. On Doris 4.1.4 it found:

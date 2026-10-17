@@ -3,8 +3,9 @@
 Postgres can index a `vector` column in three ways, with pgvector's **HNSW**, Timescale's **DiskANN**
 from pgvectorscale, or **PRISM** from the newer pg_vectorsearch. On 20,000 random 64-dimensional
 vectors, PRISM built nine times faster than HNSW at a sixth of the size and nearly matched its
-recall, while DiskANN stalled at 0.76. Random vectors are the worst case for two of the three
-designs, so the numbers rank the indexes under stress, and on real embeddings both do far better.
+recall, while DiskANN stalled at 0.76. Random vectors are the worst case for DiskANN and PRISM, so
+these numbers rank the indexes under stress. On real embeddings, which cluster strongly, both should
+do better, though the lab did not measure that.
 
 ## How each index searches
 
@@ -49,7 +50,7 @@ here) reaches only about 0.40, and recall rises to 0.81 at 40 and 0.93 at 80.
 Random vectors are the worst case for both quantization and partitioning. Their coordinates are
 independent, so binary codes have nothing to capture and k-means has no clusters to follow. That is
 why DiskANN stalls at 0.76 and PRISM needs every partition. Real embeddings cluster strongly, and on
-them both indexes do far better. PRISM's automatic `nprobe` aims at a recall of about 0.95. Read
+them both indexes should do far better, though the lab did not measure that. PRISM's automatic `nprobe` aims at a recall of about 0.95. Read
 the table as a comparison under stress.
 :::
 

@@ -4,8 +4,8 @@
 Change data capture is usually drawn as Postgres, then Debezium, then Kafka, then the target, and
 Postgres can do the first arrow on its own. With a publication on the source and a subscription on a
 second Postgres, every committed insert, update and delete in the lab arrived about 9 ms after
-commit, in commit order. Debezium, AWS DMS and Redshift zero-ETL all read this same stream and differ
-only in where they write it, so the ways it breaks are theirs too.
+commit, in commit order. Debezium, AWS DMS and Redshift zero-ETL all read this same
+stream, so the ways it breaks are theirs too.
 
 ## One statement on each side
 
