@@ -1,8 +1,7 @@
 # The notebooks {.unnumbered}
 
-Every measurement in the book comes from one of these notebooks. Each is shown with the outputs of
-the run that produced it, against the lab's containers on one laptop. The book build does not run
-them again. To run one yourself, see [Running the lab](../chapters/running-the-lab.qmd).
+Each notebook is shown with the outputs of the run that produced it, against the lab's containers
+on one laptop. The book build does not run them again. To run one yourself, see [Running the lab](../chapters/running-the-lab.qmd).
 
 | notebook | chapter | server |
 |---|---|---|

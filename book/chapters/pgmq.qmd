@@ -2,7 +2,7 @@
 
 [pgmq](https://github.com/pgmq/pgmq) gives Postgres a queue in the style of Amazon SQS, written in
 plain SQL. Reading a message hides it for a number of seconds instead of locking it, so a message
-whose consumer crashes simply reappears. In the lab, a message read with a 2 second timeout by a consumer that then died came back 2.2 seconds
+whose consumer crashes reappears. In the lab, a message read with a 2 second timeout by a consumer that then died came back 2.2 seconds
 later with `read_ct` 2. Every operation is a SQL function, so anything that can run SQL can send or
 receive, from psql to a trigger to a Go service.
 
@@ -70,8 +70,7 @@ pgmq also has:
 - topics, where `bind_topic('orders.*.paid', 'payments')` and `send_topic('orders.eu.paid', msg)`
   route messages with RabbitMQ-style wildcards, `*` matching one word and `#` any number of words
   after a dot
-- archive tables, `pgmq.a_<name>`, which keep every archived message with its `archived_at` time and
-  make a free audit log
+- archive tables, `pgmq.a_<name>`, which keep every archived message with its `archived_at` time
 
 ## Try it here
 

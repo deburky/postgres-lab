@@ -10,9 +10,8 @@ gives the database one of those jobs, measures what it costs, and says where it 
 The measurements come from one repository, [postgres-lab](https://github.com/deburky/postgres-lab),
 which runs on a laptop. Its Docker setup brings up Postgres 16 and 18 with pgvector, a replica,
 PgBouncer, Apache Doris and a Postgres with pg_ducklake, next to a small FastAPI app that searches
-the SQLAlchemy documentation. Every number in the text comes from one of its notebooks, and the
-appendix renders each notebook with its outputs, so any claim can be checked against the run that
-produced it.
+the SQLAlchemy documentation. The measurements come from its notebooks and benchmark scripts, and
+the appendix renders each notebook with its outputs.
 
 ## The map
 
@@ -64,7 +63,7 @@ Some pages let you try things in the browser. The vector search scene in
 replay traces recorded from the lab's app, so the workers, the `NOTIFY`s and the HNSW searches are
 real even though no server runs behind the page. Each one starts as a recording, and Run it
 live opens the 3D version. The pgvector, JSONB and pgmq chapters end with a SQL console, which runs
-a real Postgres inside the page.
+Postgres inside the page.
 
 ::: {.callout-tip}
 ## Run it yourself

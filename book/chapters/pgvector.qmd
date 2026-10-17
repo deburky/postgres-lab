@@ -93,7 +93,7 @@ this tab, and Reset data starts over. [Open full screen](../viz/sql.html?lab=vec
 
 ## The doc-search app
 
-The lab's FastAPI app is this chapter in production form. `app/ingest.py` fetches 20 pages of the
+The lab's FastAPI app uses these queries for its doc search. `app/ingest.py` fetches 20 pages of the
 SQLAlchemy documentation, splits them by section into chunks of about 250 words, embeds each chunk
 with `BAAI/bge-small-en-v1.5` (384 dimensions, ONNX on the CPU) and stores the 407 rows with an
 HNSW index.
