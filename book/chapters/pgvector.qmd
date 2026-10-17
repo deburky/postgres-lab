@@ -1,5 +1,6 @@
 # Vectors in Postgres
 
+![](../images/spot-2.svg){.spot fig-alt="A grid of white towers on a lime tile; a violet ball floats above the yellow-topped tower, joined to it by a dashed line."}
 [pgvector](https://github.com/pgvector/pgvector) adds a `vector` type, four distance operators and
 two index types to Postgres. With it, "find the passages most similar to this question" is an
 `ORDER BY ... LIMIT`, and the embeddings sit in the same table as the text, the permissions and the

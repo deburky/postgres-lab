@@ -1,5 +1,6 @@
 # Access as code
 
+![](../images/spot-5.svg){.spot fig-alt="A gate with a yellow lintel, three pods, and a sheet of paper lying on a mint tile."}
 Who may do what in a database tends to be configured by hand, once, and then never understood
 again. The lab expresses one small access model twice, with Pulumi and with pgsesame, and applies
 each to a real server, which makes the difference between the two approaches concrete.

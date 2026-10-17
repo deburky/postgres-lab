@@ -1,5 +1,6 @@
 # Sync and async, side by side
 
+![](../images/spot-1.svg){.spot fig-alt="A small isometric town on a yellow tile, joined to a blue-topped Postgres cylinder by two pipes."}
 SQLAlchemy 2.0 gives you the same statements, the same models and the same results in two styles:
 blocking calls, or `await`ed ones. The interesting question is not how to write either, which takes
 an afternoon, but what async actually buys, and where it bites.

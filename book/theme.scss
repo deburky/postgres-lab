@@ -157,3 +157,6 @@ table.table, .table {
 
 // the illustrations: ink on paper already, so no frame of their own
 img.hero { display: block; width: 100%; height: auto; margin: 0.5rem 0 1.5rem; }
+// a part's spot illustration, beside the opening paragraph of its first chapter
+img.spot { float: right; width: 240px; height: auto; margin: 0.2rem 0 0.8rem 1.2rem; }
+@media (max-width: 640px) { img.spot { float: none; display: block; width: 70%; margin: 0 auto 1rem; } }
