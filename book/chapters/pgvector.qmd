@@ -1,6 +1,6 @@
 # Vectors in Postgres
 
-![](../images/spot-2.svg){.spot fig-alt="A grid of white towers on a lime tile; a violet ball floats above the yellow-topped tower, joined to it by a dashed line."}
+![](../images/spot-2.svg){.spot fig-alt="A grid of white towers on a lime tile, a violet ball floating above the yellow-topped one; an elephant in a lab coat inspects them with a magnifying glass."}
 Semantic search turns each passage of text into an embedding, a list of numbers, and answers a
 question with the passages whose embeddings lie closest to the question's. [pgvector](https://github.com/pgvector/pgvector)
 does this inside Postgres. It adds a `vector` type, four distance operators and two index types.

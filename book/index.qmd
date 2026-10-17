@@ -1,5 +1,7 @@
 # Welcome {.unnumbered}
 
+![](images/crew.svg){.column-body-outset .hero fig-alt="An isometric ink drawing of cartoon elephants at work around a Postgres database: one sends jobs from a laptop onto a belt, one picks a job off the belt, one carries it up a ramp into a hatch on the database, one inspects the hatch with a magnifying glass, one repairs the database with a wrench, one wheels cubes of data away, one stacks them on a pile and one checks them off on a clipboard."}
+
 Postgres is usually introduced as the place where an application keeps its rows. It can also be a
 vector store, a job queue, a message broker, the source of a change stream, and the place where
 access rules are enforced. Each chapter of this book takes one of those roles and asks what it
@@ -12,9 +14,9 @@ notebook per topic. Every number in the text comes from one of those notebooks, 
 The notebooks are in the appendix with their outputs, so you can check any claim against the run
 that produced it.
 
-![](images/world.svg){.column-body-outset .hero fig-alt="An isometric ink drawing of the book as a small world: a Postgres cylinder at the centre of a plate, with five districts around it for Python, Search, Queues, Moving data, and Access and operations."}
-
 ## The map
+
+![](images/world.svg){.column-body-outset .hero fig-alt="An isometric ink drawing of the book as a small world: a Postgres cylinder at the centre of a plate, with five districts around it for Python, Search, Queues, Moving data, and Access and operations."}
 
 ::: {.map}
 ::: {}

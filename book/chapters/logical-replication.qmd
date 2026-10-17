@@ -1,6 +1,6 @@
 # Postgres to Postgres: change data capture
 
-![](../images/spot-4.svg){.spot fig-alt="Two cylinders, Postgres and a warehouse, joined by a pipe with rows travelling along it."}
+![](../images/spot-4.svg){.spot fig-alt="Two cylinders, Postgres and a warehouse, joined by a pipe with rows travelling along it; an elephant wheels cubes of data between them."}
 Change data capture (CDC) means following every change to a database as it is committed, so that
 another system stays in step. It is usually drawn as Postgres, then Debezium, then Kafka, then the
 target. The first arrow is the interesting one, and Postgres can follow it on its own. The source

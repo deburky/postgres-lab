@@ -1,6 +1,6 @@
 # Sync and async, side by side
 
-![](../images/spot-1.svg){.spot fig-alt="A small isometric town on a yellow tile, joined to a blue-topped Postgres cylinder by two pipes."}
+![](../images/spot-1.svg){.spot fig-alt="A small isometric town on a yellow tile, joined to a blue-topped Postgres cylinder by two pipes; an elephant in a hoodie works on a laptop in front."}
 SQLAlchemy 2.0 runs the same statements, the same models and the same results in two styles. In
 sync code each call blocks until the database answers. In async code the call is `await`ed, and the
 process can do other work while it waits. Learning to write either takes an afternoon. This chapter

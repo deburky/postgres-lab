@@ -11,9 +11,9 @@ function P(x,y,z){ return [OX + (x - y)*C*S, OY - (x + y)*0.5*S + z*S]; }
 function style(p, fill){ if (fill){ p.filled = true; p.fillColor = fill; } else p.filled = false; p.stroked = true; p.strokeColor = INK; p.strokeWidth = 1.5; p.strokeJoin = StrokeJoin.ROUNDENDJOIN; p.strokeCap = StrokeCap.ROUNDENDCAP; return p; }
 function poly(pts, fill){ var p = doc.pathItems.add(); p.setEntirePath(pts); p.closed = true; return style(p, fill); }
 function line(pts){ var p = doc.pathItems.add(); p.setEntirePath(pts); p.closed = false; return style(p, null); }
-function drawBox(x,y,z,w,d,h,top){
-  poly([P(x,y+d,z),P(x+w,y+d,z),P(x+w,y+d,z+h),P(x,y+d,z+h)], WHITE);
-  poly([P(x+w,y,z),P(x+w,y+d,z),P(x+w,y+d,z+h),P(x+w,y,z+h)], WASH);
+function drawBox(x,y,z,w,d,h,top,left,right){
+  poly([P(x,y+d,z),P(x+w,y+d,z),P(x+w,y+d,z+h),P(x,y+d,z+h)], left || WHITE);
+  poly([P(x+w,y,z),P(x+w,y+d,z),P(x+w,y+d,z+h),P(x+w,y,z+h)], right || WASH);
   poly([P(x,y,z+h),P(x+w,y,z+h),P(x+w,y+d,z+h),P(x,y+d,z+h)], top || WHITE);
 }
 function tile(x,y,w,d,fill,z){ z = z || 0; return poly([P(x,y,z),P(x+w,y,z),P(x+w,y+d,z),P(x,y+d,z)], fill); }
@@ -46,6 +46,35 @@ var items = [];
 function box(x,y,z,w,d,h,top){ items.push({k: x + w/2 + y + d/2 + z*0.01, f: function(){ drawBox(x,y,z,w,d,h,top); }}); }
 function cyl(cx,cy,z0,h,r,top,bands){ items.push({k: cx + cy, f: function(){ drawCyl(cx,cy,z0,h,r,top,bands); }}); }
 function tree(x,y,crown){ items.push({k: x + y, f: function(){ drawTree(x,y,crown); }}); }
+function boxc(x,y,z,w,d,h,top,left,right,bias){ items.push({k: x + w/2 + y + d/2 + z*0.01 + (bias || 0), f: function(){ drawBox(x,y,z,w,d,h,top,left,right); }}); }
+// an elephant built from boxes, facing +x ("x") or +y ("y"), s times the base size, with an
+// optional cube of data on its back
+var ELE_TOP = col("D6E6F2"), ELE_LEFT = col("EEF5FB"), ELE_RIGHT = col("BFD4E4");
+function elephant(X, Y, facing, s, cargo){
+  function part(u, v, z, du, dv, dz, top, bias){
+    var a = facing == "x" ? [X + u*s, Y + v*s, du*s, dv*s] : [X + v*s, Y + u*s, dv*s, du*s];
+    var t = top === undefined ? ELE_TOP : top;
+    boxc(a[0], a[1], z*s, a[2], a[3], dz*s, t, t == ELE_TOP ? ELE_LEFT : WHITE, t == ELE_TOP ? ELE_RIGHT : WASH, bias);
+  }
+  // legs, tail and body
+  part(0.3, 0.2, 0, 1.5, 1.5, 2.3); part(0.3, 2.3, 0, 1.5, 1.5, 2.3);
+  part(4.2, 0.2, 0, 1.5, 1.5, 2.3); part(4.2, 2.3, 0, 1.5, 1.5, 2.3);
+  part(-0.5, 1.8, 3.6, 0.5, 0.4, 1.2);
+  part(0, 0, 2.2, 6, 4, 3.4);
+  // head lower than the back, then the far ear behind it and the near ear in front
+  part(6.1, -2.4, 2.2, 0.4, 2.9, 3.8, ELE_TOP, 0.2);
+  part(5.8, 0.5, 2.6, 2.4, 3, 2.8, ELE_TOP, 0.3);
+  part(6.1, 3.5, 2.2, 0.4, 2.9, 3.8, ELE_TOP, 0.7);
+  // tusks, and a trunk that hangs and curls forward
+  part(8.2, 0.8, 2.5, 0.9, 0.4, 0.4, WHITE, 0.75); part(8.2, 2.8, 2.5, 0.9, 0.4, 0.4, WHITE, 0.85);
+  part(8.2, 1.55, 2.9, 0.9, 0.9, 1.5, ELE_TOP, 0.8);
+  part(8.5, 1.6, 1.0, 0.8, 0.8, 1.9, ELE_TOP, 0.9);
+  part(9.3, 1.6, 1.0, 0.7, 0.8, 0.7, ELE_TOP, 1.0);
+  if (cargo) part(1.8, 0.8, 5.6, 2.4, 2.4, 2.4, cargo, 0.1);
+  // the eye, on the side of the head that faces the reader
+  var e = facing == "x" ? P(X + 7.3*s, Y + 3.5*s, 4.5*s) : P(X + 3.5*s, Y + 7.3*s, 4.5*s), r = 1.4 + s;
+  items.push({k: (facing == "x" ? X + 7*s + Y + 2*s : X + 2*s + Y + 7*s) + 1.2, f: function(){ style(doc.pathItems.ellipse(e[1] + r, e[0] - r, 2*r, 2*r), INK); }});
+}
 function flush(){ items.sort(function(a, b){ return a.k - b.k; }); for (var i = 0; i < items.length; i++) items[i].f(); items = []; }
 function text(s, font, size, color){ var tf = doc.textFrames.add(); tf.contents = s; var a = tf.textRange.characterAttributes; a.textFont = font; a.size = size; a.fillColor = color; return tf; }
 // a label card; the leader leaves from side "l", "r", "t" or "b" and ends in a dot at (ax, ay)

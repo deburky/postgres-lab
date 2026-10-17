@@ -1,6 +1,6 @@
 # A job queue that is just a table
 
-![](../images/spot-3.svg){.spot fig-alt="Coloured job cubes waiting on a conveyor in front of three worker blocks, one of which carries a job on its roof."}
+![](../images/spot-3.svg){.spot fig-alt="Coloured job cubes waiting on a conveyor in front of three worker blocks; an elephant in overalls picks a job off the conveyor."}
 A job queue lets an application hand slow work, such as fetching and embedding a web page, to
 background workers and answer the request straight away. The usual tools for this are Redis or
 RabbitMQ, a second system to run next to the database. [PgQueuer](https://github.com/janbjorge/pgqueuer)

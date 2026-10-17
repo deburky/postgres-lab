@@ -1,6 +1,6 @@
 # Access as code
 
-![](../images/spot-5.svg){.spot fig-alt="A gate with a yellow lintel, three pods, and a sheet of paper lying on a mint tile."}
+![](../images/spot-5.svg){.spot fig-alt="A gate with a yellow lintel, three pods and a sheet of paper on a mint tile; an elephant in a vest checks a clipboard."}
 The rules for who may read or write which tables are usually typed into a database by hand, once,
 and then nobody remembers why they look the way they do. Writing them down as code fixes that: the
 rules live in a file, a tool compares the file with the server, and a change is a reviewed diff. The
