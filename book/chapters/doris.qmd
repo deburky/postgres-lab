@@ -1,9 +1,10 @@
 # Postgres to Apache Doris
 
-[Apache Doris](https://doris.apache.org/) is a columnar analytical database that speaks the MySQL
-protocol. Since 4.1 it can follow Postgres by itself: one statement creates the target tables,
-copies the rows and streams changes from a replication slot, with no Kafka or Debezium deployment
-in between.
+[Apache Doris](https://doris.apache.org/) is a columnar analytical database: it stores each column
+separately, which makes scans and aggregates over many rows fast. It speaks the MySQL protocol.
+Since version 4.1 it can follow Postgres by itself. One statement creates the target tables, copies
+the existing rows and then streams changes from a replication slot, with no Kafka or Debezium to
+deploy in between:
 
 ```sql
 CREATE JOB pg_mirror_job
@@ -21,8 +22,10 @@ FROM POSTGRES (
 TO DATABASE pg_mirror ("table.create.properties.replication_num" = "1");
 ```
 
-The lab runs one frontend and one backend next to pg16 and pointed a job at the project's tables.
-What it found on Doris 4.1.4:
+## What the lab found
+
+The lab runs one Doris frontend and one backend next to pg16, and points a job at the project's
+tables. On Doris 4.1.4:
 
 | | |
 |---|---|
@@ -33,19 +36,23 @@ What it found on Doris 4.1.4:
 | generated columns | copied by the snapshot, then dropped once streaming starts |
 | DDL | added and dropped columns propagate, which Postgres to Postgres does not do |
 
+The trade against the [previous chapter](logical-replication.qmd) is latency for convenience.
+Changes take seconds to arrive instead of milliseconds, but schema changes come across on their
+own.
+
 ## The vector problem
 
 Doris's CDC client is Debezium's Postgres connector, and Debezium has no converter for pgvector's
-`vector`. The column does not fail; it arrives as NULL. The workaround the notebook verifies is a
-trigger-maintained `real[]` copy of the embedding on the source, which arrives as `ARRAY<FLOAT>`,
+`vector` type. The column does not fail; it arrives as NULL. The notebook verifies a workaround: a
+trigger on the source keeps a `real[]` copy of each embedding. That copy arrives as `ARRAY<FLOAT>`,
 and Doris's own `cosine_distance` then returns the same top five as pgvector.
 
 ::: {.callout-warning}
 ## Sized for a server
 
-The images are large (4 GB frontend, 9 GB backend), and their defaults assume a dedicated machine:
-an 8 GB heap and a backend sized to 90% of memory, which on Docker Desktop ends in
-`MEM_LIMIT_EXCEEDED`. The lab's compose file caps both (`DORIS_FE_HEAP`, `DORIS_BE_MEM`) to
+The images are large (4 GB for the frontend, 9 GB for the backend), and their defaults assume a
+dedicated machine: an 8 GB heap, and a backend sized to 90% of memory. On Docker Desktop that ends
+in `MEM_LIMIT_EXCEEDED`. The lab's compose file caps both (`DORIS_FE_HEAP`, `DORIS_BE_MEM`) so they
 fit beside the other containers.
 :::
 

@@ -1,12 +1,19 @@
 # Vectors in Postgres
 
 ![](../images/spot-2.svg){.spot fig-alt="A grid of white towers on a lime tile; a violet ball floats above the yellow-topped tower, joined to it by a dashed line."}
-[pgvector](https://github.com/pgvector/pgvector) adds a `vector` type, four distance operators and
-two index types to Postgres. With it, "find the passages most similar to this question" is an
-`ORDER BY ... LIMIT`, and the embeddings sit in the same table as the text, the permissions and the
-foreign keys. This chapter covers the query side; the next one compares the indexes.
+Semantic search turns each passage of text into an embedding, a list of numbers, and answers a
+question with the passages whose embeddings lie closest to the question's. [pgvector](https://github.com/pgvector/pgvector)
+does this inside Postgres. It adds a `vector` type, four distance operators and two index types.
+
+With pgvector, "find the passages most similar to this question" is an `ORDER BY ... LIMIT`. The
+embeddings sit in the same table as the text, the permissions and the foreign keys, so there is no
+second store to keep in sync. This chapter covers the query side, and the next one compares the
+indexes.
 
 ## Four distances
+
+Each operator measures closeness in a different way, and each needs its own index operator class
+(the opclass), which comes up again below:
 
 | SQL | SQLAlchemy | what it is | index opclass |
 |---|---|---|---|
@@ -15,14 +22,15 @@ foreign keys. This chapter covers the query side; the next one compares the inde
 | `a <#> b` | `col.max_inner_product(b)` | the negative inner product (so smaller is closer) | `vector_ip_ops` |
 | `a <+> b` | `col.l1_distance(b)` | taxicab distance | `vector_l1_ops` |
 
-For normalized embeddings, which most models produce, cosine and inner product rank identically,
-and inner product skips a division. The notebook starts with a dozen hand-made three-dimensional
-vectors whose axes mean something (`[fruit, tech, sport]`), so every distance can be predicted in
-your head before Postgres computes it.
+Most embedding models produce normalized vectors, of length 1. For those, cosine and inner product
+put results in the same order, and inner product skips a division. The notebook starts with a dozen
+hand-made three-dimensional vectors whose axes mean something (`[fruit, tech, sport]`), so you can
+predict each distance in your head before Postgres computes it.
 
 ## Nearest neighbours
 
-The core pattern, with everything else as decoration:
+A similarity query is an ordinary `SELECT` ordered by distance. Filters, joins and labels are
+added around that core:
 
 ```python
 distance = Document.embedding.cosine_distance(query_vec).label("distance")
@@ -34,15 +42,17 @@ stmt = (
 )
 ```
 
-Two refinements come up in every real system. **Retrieve, then rerank**: take the top 50 by vector
-distance in a CTE, then order those by a blended score (similarity and popularity, recency, a
-cross-encoder). **Top-k per group**: `row_number() OVER (PARTITION BY category ORDER BY distance)`
-and keep the first three of each.
+Two refinements come up in most real systems. The first is **retrieve, then rerank**: a CTE takes
+the top 50 by vector distance, and the outer query orders those 50 by a blended score, such as
+similarity with popularity or recency, or a cross-encoder. The second is **top-k per group**:
+`row_number() OVER (PARTITION BY category ORDER BY distance)` numbers the rows within each category,
+and the query keeps the first three of each.
 
 ## Upserting embeddings
 
-Embedding pipelines re-run. `INSERT ... ON CONFLICT DO UPDATE` on a unique key inserts new rows and
-refreshes changed ones in one statement:
+Embedding pipelines run again whenever the source text changes. `INSERT ... ON CONFLICT DO UPDATE`
+on a unique key handles both cases in one statement: it inserts new rows and refreshes the ones
+that already exist.
 
 ```python
 stmt = insert(Document).values(rows)
@@ -51,23 +61,24 @@ stmt = stmt.on_conflict_do_update(index_elements=["name"], set_={"embedding": st
 
 ## An index changes the answer
 
-With no index Postgres computes every distance and sorts: exact, and fine to some tens of thousands
-of rows. An approximate nearest-neighbour index is much faster and *slightly wrong*, and how wrong
-is a setting. Two rules that cost people hours:
+Without an index, Postgres computes the distance to each row and sorts them. The answer is exact,
+and the cost is acceptable up to some tens of thousands of rows. An approximate nearest-neighbour
+index is much faster but *slightly wrong*, and how wrong is a setting. Two details of these indexes
+often cost people hours:
 
 ::: {.callout-warning}
 ## The opclass must match the operator
 
-An HNSW index built with `vector_l2_ops` is ignored by a query ordering by `<=>`. The plan quietly
-goes back to a sequential scan. Check with `EXPLAIN` after every index change.
+An HNSW index built with `vector_l2_ops` is ignored by a query that orders by `<=>`. The plan
+quietly goes back to a sequential scan. Check with `EXPLAIN` after each index change.
 :::
 
 ::: {.callout-warning}
 ## Filters run after the walk
 
-HNSW collects `hnsw.ef_search` candidates and then applies `WHERE`. A filter that keeps 10% of rows
-throws most candidates away, and the query can return fewer rows than its `LIMIT`. pgvector 0.8
-added iterative scans that keep walking until the limit is met:
+HNSW collects `hnsw.ef_search` candidates first and applies `WHERE` afterwards. A filter that keeps
+10% of rows throws most candidates away, and the query can return fewer rows than its `LIMIT`.
+pgvector 0.8 added iterative scans, which keep walking the graph until the limit is met:
 `SET hnsw.iterative_scan = relaxed_order`.
 :::
 
@@ -75,7 +86,8 @@ added iterative scans that keep walking until the limit is met:
 
 The console below is a real Postgres with pgvector 0.8. `items` holds a dozen vectors whose three
 axes mean `[fruit, tech, sport]`, and `docs` holds 2,000 random 16-dimensional ones for the index
-examples. Each chip loads a query and runs it; edit the SQL and press Run to try your own.
+examples. Each chip loads a query and runs it. You can also edit the SQL and press Run to try your
+own.
 
 ::: {.viz .console .column-page}
 <iframe src="../viz/sql.html?lab=vectors&embed=1" loading="lazy" title="pgvector SQL console"></iframe>
@@ -90,12 +102,14 @@ starts over. [Open full screen](../viz/sql.html?lab=vectors){target="_blank"}.
 ## The doc-search app
 
 The lab's FastAPI app is this chapter in production form. `app/ingest.py` fetches 20 pages of the
-SQLAlchemy documentation, chunks them by section (about 250 words), embeds each chunk with
-`BAAI/bge-small-en-v1.5` (384 dimensions, ONNX on the CPU) and stores 407 rows with an HNSW index.
-`POST /ask` embeds a question, takes the top five chunks by cosine distance and builds an extractive
-summary from their sentences, so nothing is generated and every answer carries its sources.
-Retrieval takes about 20 ms. The [sync and async scene](sqlalchemy.qmd#watching-it-happen) shows
-those queries in flight, with the chunks laid out by a PCA of their real embeddings.
+SQLAlchemy documentation and splits them by section into chunks of about 250 words. It embeds each
+chunk with `BAAI/bge-small-en-v1.5` (384 dimensions, ONNX on the CPU) and stores the 407 rows with
+an HNSW index.
 
-Notebook: [pgvector playground](../notebooks/pgvector_playground.ipynb), run on pg18, which
-covers all of the above plus the index comparison of the next chapter.
+`POST /ask` embeds the question and takes the five chunks closest by cosine distance. It then builds
+an extractive summary from their sentences, so nothing is generated and each answer carries its
+sources. Retrieval takes about 20 ms. The [sync and async scene](sqlalchemy.qmd#watching-it-happen)
+shows those queries in flight, with the chunks laid out by a PCA of their real embeddings.
+
+Notebook: [pgvector playground](../notebooks/pgvector_playground.ipynb), run on pg18. It covers
+everything above, plus the index comparison of the next chapter.

@@ -1,11 +1,17 @@
 # The same servers on local Kubernetes
 
-The lab's Postgres images also run as pods on a local cluster, so the pgvector notebook's
-concurrency tables can be compared with the compose ones. Every local cluster here is a container
-inside Docker Desktop's VM, so this measures Kubernetes networking and pod overhead on the same
-cores, not a different machine.
+The lab's Postgres images also run as pods on a local Kubernetes cluster. That makes it possible to
+run the pgvector notebook's concurrency tests against a pod and compare them with the compose
+results. Every local cluster here is a container inside Docker Desktop's VM, on the same cores as
+compose. So the comparison measures what Kubernetes networking and pods add, not a faster or
+slower machine.
 
 ## kind, k3d and k3s
+
+The lab supports three ways to get a cluster. kind runs stock Kubernetes in a container, k3d runs
+k3s (a trimmed Kubernetes distribution) through its own command-line tool, and k3s can also run in
+a single container started from Python. Each one exposes the two Postgres pods on its own pair of
+ports:
 
 ```bash
 just k8s-up kind     # stock Kubernetes, ports 5434 / 5435
@@ -23,23 +29,25 @@ just k8s-test kind   # the pgvector notebook against the cluster
 | loading a local image | `kind load docker-image` | `k3d image import` |
 | extras by default | none | Traefik ingress and a local-path storage class |
 
-For the benchmark, the choice does not change the result. kind when you want stock Kubernetes,
-k3d when you want it fast and small.
+For the benchmark, the choice of cluster does not change the result. Pick kind when you want stock
+Kubernetes, and k3d when you want a cluster that is small and fast to create.
 
 ## k3s from Python, with no cluster tool at all
 
-Docker Desktop's own Kubernetes is switched on in its settings, and kind's node needs kubeadm run
-inside it, so neither can be started from the Docker SDK. k3s can: it is one binary that bootstraps
-the whole cluster, which is why k3d is a thin wrapper around the Docker client. `k8s/k3s.py` does
-the same with docker-py in about 150 lines:
+The third option needs nothing but Docker. Docker Desktop's own Kubernetes can only be switched on
+in its settings, and kind's node needs kubeadm to run inside it, so neither can be started from the
+Docker SDK (docker-py). k3s can, because it is one binary that bootstraps the whole cluster by
+itself. That is also why k3d is only a thin wrapper around the Docker client.
 
-1. run `rancher/k3s` as a privileged container and wait for the node;
-2. stream images in from the local Docker cache (`docker save` into `ctr images import`), so
-   nothing is pulled twice;
-3. drop the manifests into k3s's auto-deploy directory, which k3s applies on its own, so there is
-   no `kubectl` call;
-4. wait for the pods and for Postgres to answer on the host port.
+`k8s/k3s.py` does the same job as k3d in about 150 lines of docker-py:
 
-About 40 seconds cold, 10 when the container already exists. The pgvector notebook calls it
-itself when pointed at `k3s-pg16`, so the Kubernetes run works from a clean machine with only
-Docker installed.
+1. It runs `rancher/k3s` as a privileged container and waits for the node.
+2. It streams images in from the local Docker cache (`docker save` into `ctr images import`), so
+   nothing is pulled twice.
+3. It drops the manifests into k3s's auto-deploy directory, which k3s applies on its own, so no
+   `kubectl` call is needed.
+4. It waits for the pods, and for Postgres to answer on the host port.
+
+A cold start takes about 40 seconds, and about 10 when the container already exists. The pgvector
+notebook calls the script itself when it is pointed at `k3s-pg16`. So the Kubernetes run works on a
+clean machine that has only Docker installed.

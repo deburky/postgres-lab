@@ -1,60 +1,65 @@
 # PgBouncer: where it helps, where it doesn't
 
-Postgres forks a process per connection and stops at `max_connections`. PgBouncer, a
-single-process pooler, sits in front: clients connect to it as if it were the database, and it
-lends them a small set of real server connections. The usual pitch is "connections get cheap".
-The lab measured four claims on local containers, with PgBouncer 1.25 in transaction mode and a
-pool of 10, and the first one did not hold up.
+Postgres starts a separate process for every connection, and it refuses new ones once it reaches
+`max_connections`. PgBouncer is a connection pooler that sits in front of it. Clients connect to
+PgBouncer as if it were the database, and it lends them a small set of real server connections.
+
+PgBouncer is usually sold as the way to make connections cheap. The lab tested four claims on local
+containers, with PgBouncer 1.25 in transaction mode and a pool of 10 server connections. The first
+claim did not hold up.
 
 ## 1. Cheaper connections? Not on a laptop
 
-One client connecting repeatedly costs about the same with and without PgBouncer, and in a storm of
-80 simultaneous connections PgBouncer's per-connection latency is worse. Two reasons:
+One client connecting over and over costs about the same with and without PgBouncer. In a storm of
+80 simultaneous connections, PgBouncer's latency per connection is worse. There are two reasons.
 
-- **Authentication dominates, and both paths pay it.** With `scram-sha-256` each connection runs
-  thousands of PBKDF2 iterations, and PgBouncer has to verify the client the same way. The fork
-  itself is about a millisecond here, so there is little left to save.
-- **PgBouncer is single-threaded.** Eighty SCRAM handshakes queue behind one core, while eighty
-  Postgres backends do theirs in parallel.
+- **Authentication dominates, and both paths pay it.** With `scram-sha-256`, each connection runs
+  thousands of PBKDF2 iterations (a deliberately slow password hash), and PgBouncer has to verify
+  the client the same way. Starting the Postgres process takes about a millisecond here, so there
+  is little left to save.
+- **PgBouncer is single-threaded.** Eighty password checks queue behind one CPU core, while eighty
+  Postgres processes do theirs in parallel.
 
-The saving is real where connecting is expensive for other reasons (TLS across a network, a cold
-catalog cache), but it is not the main reason to deploy a pooler.
+The saving is real where connecting is expensive for other reasons, such as TLS across a network or
+a cold catalog cache. It is not the main reason to deploy a pooler.
 
 ## 2. More clients than Postgres allows
 
-With `max_connections = 100`, two hundred clients connecting at once directly gives roughly a
+With `max_connections = 100`, two hundred clients connecting directly at once gives roughly a
 hundred successes and a hundred `FATAL: sorry, too many clients already`. Through PgBouncer all 200
-succeed, and Postgres holds at most 10 backends for them. In transaction mode a client occupies a
-server connection only while a transaction is open; between transactions it costs PgBouncer a
-few kilobytes instead of a Postgres backend.
+succeed, and Postgres holds at most 10 processes for them.
+
+Transaction mode is what makes this work. A client occupies a server connection only while it has
+a transaction open. Between transactions it costs PgBouncer a few kilobytes instead of a Postgres
+process.
 
 ## 3. A pool is a limiter, not an accelerator
 
-Fifty clients that each need 100 ms of database time, against a pool of 10, take about
-50 / 10 × 100 ms = 500 ms through PgBouncer and about 100 ms directly. That is the deal: PgBouncer
-protects Postgres from too many concurrent backends, at the price of latency under bursts. Size
-`default_pool_size` for the concurrency Postgres can serve, roughly its cores, not for the number of
-clients.
+Take fifty clients that each need 100 ms of database time, against a pool of 10. Through PgBouncer
+they take about 50 / 10 × 100 ms = 500 ms, and directly about 100 ms. That is the deal: PgBouncer
+protects Postgres from too many concurrent processes, and the price is latency during bursts. Size
+`default_pool_size` for the concurrency Postgres can serve, roughly its number of cores, not for
+the number of clients.
 
 ## 4. What transaction pooling breaks
 
-Between transactions, the server connection behind a client can change. Anything that lives on
-the connection rather than in a transaction becomes unreliable:
+In transaction mode, the server connection behind a client can change between transactions. So
+anything that lives on the connection, rather than in a transaction, becomes unreliable:
 
-- `SET` (use `SET LOCAL` inside the transaction);
+- `SET` (use `SET LOCAL` inside the transaction instead);
 - temporary tables, which also linger on the server connection for the next client;
-- `LISTEN`, session advisory locks, `WITH HOLD` cursors;
+- `LISTEN`, session advisory locks and `WITH HOLD` cursors;
 - prepared statements, unless PgBouncer 1.21 or later tracks them (`max_prepared_statements`).
 
-The notebook makes the temp-table case visible: 30 clients each create a table in one transaction
-and read it in the next, and under load the second transaction often lands on a server connection
-that never saw the table.
+The notebook makes the temporary-table case visible. Thirty clients each create a table in one
+transaction and read it in the next. Under load, the second transaction often lands on a server
+connection that never saw the table.
 
 ::: {.callout-warning}
 ## Drivers behind PgBouncer
 
 psycopg 3 prepares a statement after seeing it five times, and asyncpg prepares everything. Both
-are fine with `max_prepared_statements > 0` on PgBouncer 1.21+. On an older PgBouncer, turn
+work with `max_prepared_statements > 0` on PgBouncer 1.21 or later. On an older PgBouncer, turn
 preparation off: `prepare_threshold=None` for psycopg, `statement_cache_size=0` for asyncpg.
 :::
 

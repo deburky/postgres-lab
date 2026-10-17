@@ -1,11 +1,15 @@
 # Documents in a relational database
 
-`JSONB` lets a column hold a whole document, binary-encoded and indexable, next to ordinary typed
-columns. It is the answer to "we need a bit of schemaless data" that does not require a second
-database. The SQL is compact once you know half a dozen operators, and SQLAlchemy maps each of
-them to Python.
+Sooner or later most applications need a bit of schemaless data: attributes that differ per row,
+or a payload stored exactly as it arrived. `JSONB` lets a Postgres column hold a whole JSON
+document, stored in a binary form that can be indexed, next to ordinary typed columns. That covers
+the need without a second database. The SQL takes half a dozen operators, and SQLAlchemy maps each
+of them to Python.
 
 ## Reading values out
+
+Four operators cover most reads. The first two take a key and differ in what they return: `->`
+gives back JSON, and `->>` gives back text.
 
 | SQL | SQLAlchemy | result |
 |---|---|---|
@@ -14,47 +18,52 @@ them to Python.
 | `payload #>> '{a,b}'` | `Event.payload[("a", "b")].astext` | text, nested |
 | `(payload ->> 'k')::int` | `Event.payload["k"].as_integer()` | integer |
 
-A missing key comes back as SQL `NULL`, and that matters more than it looks.
+A missing key comes back as SQL `NULL`. That small rule matters more than it looks, as the next
+section shows.
 
 ## Filtering, and the NULL trap
 
-Containment, `@>`, is the workhorse: it asks whether the document includes a given fragment, and a
-GIN index serves it.
+Most filters use containment, `@>`, which asks whether the document includes a given fragment. A
+GIN index (an index over the keys and values inside each document) can serve it.
 
 ```python
 select(Event).where(Event.payload.contains({"user": {"plan": "pro"}}))
 ```
 
-The trap is negation. `payload ->> 'device' != 'web'` silently drops every row that has no
-`device` key at all, because `NULL != 'web'` is not true, it is `NULL`. When absence should count
-as "not web", say so: `or_(Event.payload["device"].astext != "web", ~Event.payload.has_key("device"))`.
+The trap is negation. `payload ->> 'device' != 'web'` silently drops every row that has no `device`
+key at all. For those rows the left side is `NULL`, and `NULL != 'web'` is not true but `NULL`.
+When a missing key should count as "not web", say so in the query:
+`or_(Event.payload["device"].astext != "web", ~Event.payload.has_key("device"))`.
 
 ## Arrays become rows
 
-`jsonb_array_elements` turns one row holding an array into one row per element, and from there
-`WHERE`, `GROUP BY` and `JOIN` work as usual. In SQLAlchemy the function becomes something you can
-put in `FROM` with `.table_valued(...)`, and a join `ON true`, which Postgres evaluates laterally,
-once per row:
+`jsonb_array_elements` turns one row that holds an array into one row per element. From there,
+`WHERE`, `GROUP BY` and `JOIN` work as usual. In SQLAlchemy, `.table_valued(...)` turns the function
+into something you can put in `FROM`. You then join it `ON true`, and Postgres evaluates the join
+laterally, once per row:
 
 ```python
 item = func.jsonb_array_elements(Event.payload["items"]).table_valued(column("value", JSONB))
 select(Event.id, item.c.value["sku"].astext).join(item, true())
 ```
 
-`jsonb_to_recordset` does the same with typed columns instead of one `jsonb` value, which saves
-the casts when the elements share a shape.
+`jsonb_to_recordset` does the same but returns typed columns instead of one `jsonb` value. When the
+elements share a shape, that saves the casts.
 
 ## Paths and updates
 
-Postgres 12 added the SQL/JSON path language (`$.items[*] ? (@.qty > 1)`), a small query language
-that runs inside one document and is a close cousin of `jq`. Updates are operators too: `||`
-merges, `-` removes a key, `#-` removes a path, `jsonb_set` writes one, and `RETURNING` sends back
-what changed in the same round trip.
+Postgres 12 added the SQL/JSON path language, a small query language that runs inside one document
+and is a close cousin of `jq`. For example, `$.items[*] ? (@.qty > 1)` selects the items with a
+quantity above one.
+
+Updates are operators too. `||` merges two documents, `-` removes a key, `#-` removes a path, and
+`jsonb_set` writes a value at a path. Add `RETURNING` and the same round trip sends back what
+changed.
 
 ::: {.callout-tip}
 ## When JSONB, when columns
 
-Use columns for anything you filter, join or aggregate on routinely, and JSONB for the long tail:
+Use columns for anything you filter, join or aggregate on routinely. Use JSONB for the long tail:
 attributes that differ per row, payloads you store as received, settings. A GIN index with
 `jsonb_path_ops` makes containment fast, but no index makes a JSONB key as cheap to query as a
 typed column.
@@ -62,9 +71,9 @@ typed column.
 
 ## Try it here
 
-Every operator above, on a small `events` table whose `payload` holds a user, a device (on most
-rows) and line items. Each chip loads a query and runs it; edit the SQL and press Run to try your
-own.
+The console below runs every operator above on a small `events` table. Each row's `payload` holds a
+user, a device (on most rows) and line items. Each chip loads a query and runs it, and you can edit
+the SQL and press Run to try your own.
 
 ::: {.viz .console .column-page}
 <iframe src="../viz/sql.html?lab=jsonb&embed=1" loading="lazy" title="JSONB SQL console"></iframe>

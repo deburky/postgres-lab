@@ -1,7 +1,8 @@
 # Running the lab {#sec-running}
 
-Everything in this book runs on one laptop with Docker. The repository is
-[deburky/postgres-lab](https://github.com/deburky/postgres-lab).
+Everything in this book runs on one laptop with Docker, from the repository
+[deburky/postgres-lab](https://github.com/deburky/postgres-lab). This appendix shows how to start
+it, which server each chapter uses, and how to rerun the notebooks, the scenes and the book itself.
 
 ## First run
 
@@ -13,8 +14,9 @@ just db                  # Postgres 16 + pgvector + pgvectorscale
 just smoke               # insert three documents, search them by cosine distance
 ```
 
-`just` lists every recipe; each loads `.env` itself. A [dev container](https://github.com/deburky/postgres-lab/tree/main/.devcontainer)
-is included for VS Code, with the database already running next to it.
+Running `just` on its own lists every recipe, and each recipe loads `.env` itself. For VS Code, the
+repository includes a [dev container](https://github.com/deburky/postgres-lab/tree/main/.devcontainer)
+with the database already running next to it.
 
 ## The servers
 
@@ -25,11 +27,12 @@ is included for VS Code, with the database already running next to it.
 | replica | `just db replica` | 5440 | logical replication |
 | PgBouncer | `docker compose -f docker/pgbouncer.yaml up -d` | 6432 | PgBouncer |
 | Doris | `just db doris` | 9030 | Doris CDC |
+| ducklake | `just db ducklake` | 5443 | pg_ducklake |
 | kind, k3d, k3s | `just k8s-up <cluster>` | 5434 to 5439 | Kubernetes |
 
 ## Notebooks
 
-Run any notebook headless with papermill; the executed copy goes to `out/`:
+Papermill runs any notebook without opening it and saves the executed copy to `out/`:
 
 ```bash
 just nb pgmq_playground          # on its default server
@@ -44,10 +47,13 @@ just app                         # the API on :8000
 just viz                         # http://localhost:5173 (search) and /queue.html
 ```
 
-Running locally, the queue page's knobs are live: every Run starts real workers. The book's copies
-replay traces recorded with `npm run save-traces` and built with `npm run build:book` in `viz/`.
-The SQL consoles in the pgvector, JSONB and pgmq chapters need no server at all: they run
-[PGlite](https://pglite.dev) in the page, and `viz/src/sql/labs.ts` holds their seed data and examples.
+Run locally, the scenes talk to the API. The queue page's knobs are live, and every Run starts real
+workers. The copies in this book replay recorded traces instead: `npm run save-traces` records them
+and `npm run build:book` builds the pages, both in `viz/`.
+
+The SQL consoles in the pgvector, JSONB and pgmq chapters need no server at all. They run
+[PGlite](https://pglite.dev) in the page, and `viz/src/sql/labs.ts` holds their seed data and
+examples.
 
 ## Building this book
 
@@ -56,4 +62,4 @@ just book                        # copy the executed notebooks, build the viz, r
 just book-preview                # live preview while editing
 ```
 
-Pushing to `main` publishes it to GitHub Pages.
+Pushing to `main` publishes the book to GitHub Pages.

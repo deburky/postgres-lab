@@ -1,15 +1,16 @@
 # Sync and async, side by side
 
 ![](../images/spot-1.svg){.spot fig-alt="A small isometric town on a yellow tile, joined to a blue-topped Postgres cylinder by two pipes."}
-SQLAlchemy 2.0 gives you the same statements, the same models and the same results in two styles:
-blocking calls, or `await`ed ones. The interesting question is not how to write either, which takes
-an afternoon, but what async actually buys, and where it bites.
+SQLAlchemy 2.0 runs the same statements, the same models and the same results in two styles. In
+sync code each call blocks until the database answers. In async code the call is `await`ed, and the
+process can do other work while it waits. Learning to write either takes an afternoon. This chapter
+is about what async buys, and where it bites.
 
 ## One driver, two engines
 
-The driver is chosen by the URL. psycopg 3 implements both the blocking and the asyncio DBAPI, so
-one `DATABASE_URL` serves a sync engine for scripts and migrations and an async engine for the web
-app:
+SQLAlchemy picks the database driver from the URL. psycopg 3 implements both the blocking and the
+asyncio interfaces, so one `DATABASE_URL` can serve a sync engine for scripts and migrations and an
+async engine for the web app:
 
 ```python
 from sqlalchemy import create_engine
@@ -21,7 +22,9 @@ async_engine = create_async_engine(url)  # FastAPI
 ```
 
 With `postgresql+asyncpg://` only the async engine would work, and with `psycopg2` only the sync
-one. The lab defaults to psycopg for exactly this reason.
+one. That is why the lab uses psycopg by default.
+
+Most of the code is the same in both styles. The table lists what differs:
 
 | | sync | async |
 |---|---|---|
@@ -32,41 +35,44 @@ one. The lab defaults to psycopg for exactly this reason.
 | `select`, `insert`, `text`, models | identical | identical |
 | lazy loading | works | raises |
 
-Note what is not awaited: `.one()`, `.all()`, `.scalars()` on a result. The rows were fetched by
-`await conn.execute(...)`, and reading them is in-memory work.
+Only the round trip is awaited. `await conn.execute(...)` fetches the rows, and reading them with
+`.one()`, `.all()` or `.scalars()` afterwards is in-memory work with no `await`.
 
 ## The lazy-loading trap
 
-A lazy load is a query fired from a plain attribute access. In `author.notes` there is nowhere to
-put an `await`, so the async session refuses rather than block the event loop:
+A lazy load is a query that SQLAlchemy fires when you touch a relationship attribute that has not
+been loaded yet. In `author.notes` there is nowhere to put an `await`. Rather than block the event
+loop, the async session raises an error:
 
 ```python
 author = (await session.execute(select(Author))).scalars().first()
 author.notes   # MissingGreenlet: greenlet_spawn has not been called
 ```
 
-The same happens to attributes expired by `commit()`, which is why `AsyncSession` is almost always
-created with `expire_on_commit=False`. The ways out, in order of preference: eager-load what you
-need (`selectinload(Author.notes)`), use `await session.refresh(author, ["notes"])`, or reach for
-`AsyncAttrs` and `await author.awaitable_attrs.notes`.
+The same happens to attributes that `commit()` has expired, which is why `AsyncSession` is almost
+always created with `expire_on_commit=False`. There are three ways out, best first. Eager-load what
+you need with `selectinload(Author.notes)`. Load it explicitly with
+`await session.refresh(author, ["notes"])`. Or add `AsyncAttrs` to the model and write
+`await author.awaitable_attrs.notes`.
 
 ## What async buys: overlapping waits
 
 A single query is not faster async. What changes is what the process does while the database is
-busy. Ten queries that each spend 200 ms on the server take about 2 s one after another, and
-about 200 ms under `asyncio.gather` with a connection each from the pool. A thread pool gets the
-same overlap at the price of a thread per query.
+busy. Ten queries that each spend 200 ms on the server take about 2 s one after another. Under
+`asyncio.gather`, with a pooled connection for each, they take about 200 ms. A thread pool gets the
+same overlap, at the price of one thread per query.
 
-The pool sets the ceiling: `create_async_engine` defaults to `pool_size=5, max_overflow=10`, so 15
-queries overlap and the 16th waits. The database does the same total work in every case; only the
-client stopped idling. If the bottleneck is the database's CPU, async changes nothing.
+The connection pool sets the ceiling. `create_async_engine` defaults to `pool_size=5` and
+`max_overflow=10`, so 15 queries can overlap and the 16th waits for a free connection. In every case
+the database does the same total work, and only the client stops idling. If the bottleneck is the
+database's CPU, async changes nothing.
 
 ## Watching it happen
 
-The lab's app answers questions about the SQLAlchemy documentation with pgvector, and its
-`POST /trace` endpoint answers the same questions twice with tracing on: once **sync**, one
-connection taking them one after another, and once **async**, a task and a connection per
-question under `gather`. The scene below replays one such pair on a shared clock.
+The lab's app answers questions about the SQLAlchemy documentation with pgvector. Its `POST /trace`
+endpoint answers the same questions twice with tracing on. The **sync** run takes them one after
+another on one connection. The **async** run gives each question its own task and connection under
+`gather`. The scene below replays one such pair on a shared clock.
 
 ::: {.viz .column-page}
 <iframe src="../viz/index.html?embed=1" loading="lazy" title="Vector search with pgvector, sync and async"></iframe>
@@ -79,15 +85,15 @@ documentation field as the HNSW walk returns. Press Replay to watch again.
 :::
 
 The async plate finishes while the sync one is still working through its queue, and the two wall
-times in the corner say by how much. Every backend on the async plate is a separate process
-(Postgres forks one per connection), which is the other side of the trade: concurrency on the
-client is paid for in connections on the server, and [PgBouncer](pgbouncer.qmd) exists to manage
-that bill.
+times in the corner show by how much. Each backend on the async plate is a separate Postgres
+process, because Postgres starts one process per connection. That is the cost of the trade:
+concurrency on the client is paid for in connections on the server, and [PgBouncer](pgbouncer.qmd)
+exists to manage that cost.
 
 ## Sync code from async code
 
-pandas, Alembic and much older code want a sync connection. From async code, `run_sync` hands them
-one bridged onto the async connection, so there is no need for a second engine:
+pandas, Alembic and much older code want a sync connection. Inside async code, `run_sync` hands
+them one that is bridged onto the async connection, so a second engine is not needed:
 
 ```python
 async with async_engine.connect() as conn:
@@ -96,17 +102,17 @@ async with async_engine.connect() as conn:
 
 ## Which one to use
 
-- **Scripts, notebooks, batch jobs, migrations**: sync. Every library works and stack traces are
-  simpler.
+- **Scripts, notebooks, batch jobs and migrations**: sync. Every library works, and stack traces
+  are simpler.
 - **Web services, and anything that waits on many databases or APIs at once**: async, with eager
   loading, `expire_on_commit=False`, and a pool sized for your concurrency.
-- **A mixed code base**: one driver (psycopg 3), one URL, both engines, and `run_sync` at the
-  boundary.
+- **A mixed code base**: one driver (psycopg 3), one URL, both engines, and `run_sync` where the two
+  meet.
 
 ::: {.callout-note}
 ## In the lab
 
-`src/db.py` is the async side of that setup, and `src/settings.py` validates every server URL
-with pydantic-settings, so a malformed DSN fails at import rather than at the first query.
+`src/db.py` is the async side of that setup. `src/settings.py` checks every server URL with
+pydantic-settings, so a malformed URL fails when the module is imported, not at the first query.
 Notebook: [Sync vs async](../notebooks/sync_vs_async.ipynb).
 :::

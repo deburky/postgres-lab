@@ -1,8 +1,8 @@
 # Loading vectors fast
 
-An embedding pipeline writes a lot of floats. How they reach Postgres decides whether a load takes
-seconds or minutes, and the ORM, the path most code starts on, is the slowest one. The lab loaded
-the same 50,000 rows of 384-dimension vectors five ways.
+An embedding pipeline writes a lot of floats, and the way they reach Postgres decides whether a
+load takes seconds or minutes. The ORM, where most code starts, is the slowest way. The lab loaded
+the same 50,000 rows of 384-dimension vectors in five ways to measure the difference.
 
 ## Five ways in
 
@@ -16,17 +16,20 @@ the same 50,000 rows of 384-dimension vectors five ways.
  pgpq        |    1.32 |  37746 |  58.0 | 8.7x
 ```
 
-- **ORM** `session.add_all(...)`: what the app's ingest does, fine for hundreds of rows.
-- **Core** `insert()` with a list of dicts: the driver's `executemany`, a little better.
-- **`COPY` in text format**: every float printed and parsed as text.
-- **`COPY ... (FORMAT BINARY)`** with pgvector's binary dumper: floats travel as floats, twenty
+- **ORM** `session.add_all(...)` is what the app's ingest does. It is fine for hundreds of rows.
+- **Core** `insert()` with a list of dicts uses the driver's `executemany`, which is a little better.
+- **`COPY` in text format** prints every float as text and parses it again on the server.
+- **`COPY ... (FORMAT BINARY)`** with pgvector's binary dumper sends floats as floats. It is twenty
   times faster than the ORM.
-- **[pgpq](https://github.com/adriangb/pgpq)**: Parquet to Arrow to Postgres binary. It has no
-  `vector` type, so rows land in a `FLOAT4[]` staging table and an `INSERT ... SELECT` casts them.
+- **[pgpq](https://github.com/adriangb/pgpq)** goes from Parquet to Arrow to the Postgres binary
+  format. It has no `vector` type, so rows land in a `FLOAT4[]` staging table, and an
+  `INSERT ... SELECT` casts them.
 
-The staging step is why pgpq loses to plain binary `COPY` even before the cast: a Postgres array
-carries a 4-byte length in front of every element on the wire, so `FLOAT4[]` is twice the bytes of
-`vector`.
+The staging step explains why pgpq loses to plain binary `COPY`, even before the cast. On the wire,
+a Postgres array puts a 4-byte length in front of every element, so a `FLOAT4[]` takes twice the
+bytes of a `vector`.
+
+Binary `COPY` needs one call to teach psycopg the `vector` type, and then a row at a time:
 
 ```python
 from pgvector.psycopg import register_vector
@@ -47,7 +50,7 @@ than one build over the finished table.
 
 ## And back out as numpy
 
-The same table read back as an `(n, 384)` array, three ways:
+Reading goes the other way: the same table back as an `(n, 384)` numpy array, in three ways:
 
 ```
  read back as numpy | seconds | rows/s |  MB/s | vs psycopg_rows
@@ -57,10 +60,10 @@ The same table read back as an `(n, 384)` array, three ways:
  adbc_arrow         |    0.74 |  67889 | 104.3 | 0.7x
 ```
 
-Binary `COPY ... TO STDOUT` decoded in one numpy pass is fastest. [ADBC](https://arrow.apache.org/adbc/)
-does not know `vector` either, so the query casts to `real[]`, which arrives as `list<float>` and
-pays the array format again; it is the one to use when the destination is Arrow anyway (Polars,
-DuckDB, Parquet). For numpy, binary `COPY` wins in both directions.
+Binary `COPY ... TO STDOUT`, decoded in one numpy pass, is the fastest. [ADBC](https://arrow.apache.org/adbc/)
+does not know `vector` either, so the query casts to `real[]`. That arrives as `list<float>` and
+pays the array overhead again. ADBC is still the one to use when the destination is Arrow anyway,
+as with Polars, DuckDB or Parquet. For numpy, binary `COPY` is fastest in both directions.
 
-In the lab: `src/examples/bench/pg_copy.py` runs the comparison, and `src/vecio.py` keeps the
-binary decoder and the ADBC reader for reuse.
+In the lab, `src/examples/bench/pg_copy.py` runs the comparison, and `src/vecio.py` keeps the binary
+decoder and the ADBC reader for reuse.
