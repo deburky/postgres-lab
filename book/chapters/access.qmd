@@ -1,9 +1,12 @@
 # Access as code
 
 ![](../images/spot-5.svg){.spot fig-alt="A gate with a yellow lintel, three pods and a sheet of paper on a mint tile. An elephant in a vest checks a clipboard."}
-Pulumi checks its program against a state file, so a grant changed by hand on the server stays
-invisible until a refresh, while pgsesame keeps no state and reads the catalog on every plan. The
-lab wrote the same small access model with both tools to see where they differ. Either way the rules live in a file, and a change is a reviewed diff.
+Roles and grants are often typed into a database by hand and never written down. Keeping them in
+code puts the rules in a file, lets a tool compare that file with the server, and turns each change
+into a diff that can be reviewed. The lab writes one small access model twice, once with Pulumi and
+once with pgsesame. Pulumi compares its program with a state file, so a grant changed by hand on the
+server only shows up after a refresh, while pgsesame keeps no state and reads the server's catalog
+every time it plans.
 
 ## The access model
 
@@ -12,15 +15,16 @@ Both tools describe the same model:
 - two group roles, `app_ro` (read) and `app_rw` (read and write), that cannot log in
 - usage on the schema, and grants on its tables and sequences, for the group roles
 - **default privileges**, so that tables the `app` role creates later get the same grants (the part
-  hand-made setups most often forget)
+  that hand-made setups most often forget)
 - two login users, `reporter` and `ingest`, who get access only through membership in a group role
 
-Tables, schemas and extensions stay out, because they belong to the application and its migrations.
+Tables, schemas and extensions stay out of the model, because they belong to the application and its
+migrations.
 
 ## Pulumi {#pulumi-state-and-a-diff}
 
 `pulumi/__main__.py` builds the model with `pulumi-postgresql`, a bridge to the provider that
-Terraform uses, and `pulumi up` applies what `pulumi preview` shows:
+Terraform uses. `pulumi preview` shows what would change, and `pulumi up` applies it:
 
 ```bash
 pulumi preview            # what would change
@@ -28,15 +32,16 @@ pulumi up
 pulumi preview --refresh  # drift check: re-read the database first
 ```
 
-A plain `preview` compares the program with the state file rather than the database, which is why
-hand-made changes appear only with `--refresh`. The grants also have to be chained with
+A plain `preview` compares the program with the state file and leaves the database alone, which is
+why changes made by hand appear only with `--refresh`. The grants also have to be chained with
 `depends_on`, because the provider runs them in parallel and Postgres then fails with "tuple
 concurrently updated".
 
 ## pgsesame {#pgsesame-one-yaml-file-no-state}
 
-[pgsesame](https://github.com/almostly/pgsesame) declares the same model in `pgsesame/spec.yaml`, and
-its `plan` reads the database catalog and prints the SQL that would make the server match the spec:
+[pgsesame](https://github.com/almostly/pgsesame) declares the same model in `pgsesame/spec.yaml`. Its
+`plan` command reads the database catalog and prints the SQL that would make the server match the
+spec:
 
 ```yaml
 principals:
@@ -65,7 +70,7 @@ sesame import   # write a spec from what a server grants today
 ```
 
 Destructive changes (revokes, drops and changes of owner) need explicit flags, and passwords come
-from environment variables, never from the file.
+from environment variables instead of the file.
 
 ## Pulumi and pgsesame compared
 
@@ -77,6 +82,7 @@ from environment variables, never from the file.
 | scope | anything with a provider, databases and beyond | Postgres roles and privileges |
 | secrets | encrypted in stack config | environment variables |
 
-Either tool works, but only one of them should manage the roles on a given server. Pulumi fits when
-database access is one part of a larger infrastructure program. pgsesame fits when the database is
-the whole story and you want the plan to be SQL you can read.
+Either tool works, as long as only one of them manages the roles on a given server. Pulumi fits when
+database access is one part of a larger infrastructure program, and pgsesame fits when the database
+is the whole concern and the plan should be readable SQL. In the lab, `just sesame plan pg18` and
+`just sesame apply pg18` run pgsesame, and `pulumi/` holds the Pulumi stack.

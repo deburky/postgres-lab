@@ -1,15 +1,15 @@
 # A message queue as an extension
 
-[pgmq](https://github.com/pgmq/pgmq) gives Postgres a queue in the style of Amazon SQS, written in
-plain SQL. Reading a message hides it for a number of seconds instead of locking it, so a message
-whose consumer crashes reappears. In the lab, a message read with a 2 second timeout by a consumer that then died came back 2.2 seconds
-later with `read_ct` 2. Every operation is a SQL function, so anything that can run SQL can send or
-receive, from psql to a trigger to a Go service.
+[pgmq](https://github.com/pgmq/pgmq) is a message queue in the style of Amazon SQS, written as a
+Postgres extension in plain SQL. A queue is a table, and every operation (`pgmq.send`, `pgmq.read`,
+`pgmq.delete`, `pgmq.archive` and the rest) is a SQL function, so any program that can run SQL can
+send or receive messages, from psql to a trigger to a Go service. Instead of locking the messages it
+hands out, pgmq hides each one for a set number of seconds, after which it becomes visible again.
 
 ## Visibility timeout
 
-`read` moves the message's `vt` timestamp into the future, and until that moment no other reader
-sees it. A queue's whole life takes four calls:
+`read` moves a message's `vt` timestamp into the future, and no other reader sees the message until
+that moment passes. A queue's whole life takes four calls:
 
 ```sql
 SELECT pgmq.create('jobs');
@@ -18,23 +18,23 @@ SELECT msg_id, read_ct, message FROM pgmq.read('jobs', 30, 1);   -- hidden for 3
 SELECT pgmq.archive('jobs', 1);                                  -- done: moved to pgmq.a_jobs
 ```
 
-A consumer that finishes its work deletes or archives the message, and one that crashes does
-nothing at all. When `vt` passes the message is visible again, with `read_ct` counting the new
-attempt.
+A consumer that finishes its work deletes or archives the message. A consumer that crashes does
+nothing, and once `vt` passes the message is visible again, with its `read_ct` column counting the
+new attempt. In the [pgmq notebook](../notebooks/pgmq_playground.ipynb), a message read with a
+2 second timeout by a consumer that then died came back 2.2 seconds later with `read_ct` 2.
 
 ## Delivery guarantees
 
-Delivery is at least once, so a message can reach more than one consumer. pgmq cannot tell a slow consumer from a crashed one, so long
-work must call `set_vt` to extend its lease (the time it keeps the message hidden). In the notebook,
-a 3 second job on a 2 second timeout loses its message to a second consumer, and the same job keeps
-it when it extends the lease every half second.
-
-`pop` reads and deletes a message in one statement, which gives at-most-once delivery instead. A
-message that a consumer pops and then fails on is gone.
+Delivery is at least once, so a message can reach more than one consumer. pgmq cannot tell a slow
+consumer from a crashed one, which is why long work has to call `set_vt` to extend its lease (the
+time it keeps the message hidden). In the notebook, a 3 second job on a 2 second timeout lost its
+message to a second consumer, and the same job kept it when it extended the lease every half
+second. `pop` reads and deletes a message in one statement instead, which gives at-most-once
+delivery, and a message that a consumer pops and then fails on is lost.
 
 ## Retries
 
-pgmq has no retry policy of its own, but `read_ct` and `set_vt` are enough to write one:
+pgmq has no retry policy of its own, but `read_ct` and `set_vt` are enough to build one:
 
 ```python
 for msg_id, read_ct, message in read_batch():
@@ -51,22 +51,23 @@ for msg_id, read_ct, message in read_batch():
 ```
 
 The notebook runs this loop against a flaky page and a broken one. The flaky page succeeds on its
-second attempt, and the broken one lands in the dead-letter queue after its third.
+second attempt, and the broken one moves to the dead-letter queue after its third.
 
 ## Consumers and notifications
 
-`read` claims messages with `FOR UPDATE SKIP LOCKED` inside one `UPDATE`, so four threads reading
-400 messages took exactly 100 each, none twice, in 0.12 s. Consumers can wait inside Postgres with
-`read_with_poll`, or `enable_notify_insert` adds a trigger that sends `NOTIFY` on
-`pgmq.q_<name>.INSERT`. From send to receipt, NOTIFY took about 12 ms (median of 8), while polling
-took up to its interval.
+`read` claims messages with `FOR UPDATE SKIP LOCKED` inside one `UPDATE`, so many consumers can read
+the same queue without overlap. In the notebook, four threads reading 400 messages took exactly 100
+each, none twice, in 0.12 s. A consumer can wait for messages inside Postgres with
+`read_with_poll`, or `enable_notify_insert` can add a trigger that sends `NOTIFY` on
+`pgmq.q_<name>.INSERT`. From send to receipt, a notification took about 12 ms (median of 8), while
+polling took up to its interval.
 
-pgmq also has:
+pgmq also supports:
 
 - delayed messages, where `send(queue, msg, delay)` sets `vt` in the future at insert time
 - FIFO groups, where messages with the same `x-pgmq-group` header come out of `read_grouped` in
-  order, one at a time (a plain `read` ignores groups, so every consumer of that queue has to use
-  the grouped functions)
+  order, one at a time (a plain `read` ignores groups, so every consumer of the queue has to use the
+  grouped functions)
 - topics, where `bind_topic('orders.*.paid', 'payments')` and `send_topic('orders.eu.paid', msg)`
   route messages with RabbitMQ-style wildcards, `*` matching one word and `#` any number of words
   after a dot
@@ -74,9 +75,9 @@ pgmq also has:
 
 ## Try it here
 
-Because pgmq is plain SQL, it also installs into the in-browser Postgres below, where a queue
-called `tasks` starts with five messages. Clicking the chips in order shows the second read skipping
-the messages the first one hid, and the visibility timeout example bringing a message back with
+Because pgmq is plain SQL, it also installs into the in-browser Postgres below, where a queue called
+`tasks` starts with five messages. Run in order, the chips show the second read skipping the
+messages that the first one hid, and the visibility timeout example bringing a message back with
 `read_ct` 2.
 
 ::: {.viz .console .column-page}
@@ -91,10 +92,10 @@ in this tab, and Reset data starts over. [Open full screen](../viz/sql.html?lab=
 
 ## pgmq and pgqueuer compared
 
-Both claim work with `FOR UPDATE SKIP LOCKED`, and neither holds a lock while the work runs. They
-differ in how a claim expires and in where the logic lives. In pgmq the claim is a timestamp that
-the consumer must keep pushing forward. In pgqueuer it is a `picked` status, and the library keeps
-the worker's heartbeat fresh for you.
+Both pgmq and [pgqueuer](pgqueuer.qmd) claim work with `FOR UPDATE SKIP LOCKED`, and neither holds a
+lock while the work runs. They differ in how a claim expires and in where the logic lives. In pgmq
+the claim is a timestamp that the consumer keeps pushing forward, while in pgqueuer it is a `picked`
+status whose heartbeat the library refreshes.
 
 | | pgmq | pgqueuer |
 |---|---|---|
@@ -107,7 +108,7 @@ the worker's heartbeat fresh for you.
 | extras | archive, topics, FIFO groups, partitioned queues | dedupe keys, fleet-wide limits, cron schedules |
 
 pgmq suits a queue that several languages or services share, or one fed from SQL itself, where an
-SQS-shaped API is the point. pgqueuer suits a Python application that wants a worker framework with
+SQS-like API matters. pgqueuer suits a Python application that wants a worker framework with
 retries, limits and schedules already written.
 
 ::: {.callout-note}

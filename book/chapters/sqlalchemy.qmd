@@ -1,15 +1,17 @@
 # Sync and async, side by side
 
 ![](../images/spot-1.svg){.spot fig-alt="A small isometric town on a yellow tile, joined to a blue-topped Postgres cylinder by two pipes. An elephant in a hoodie works on a laptop in front."}
-SQLAlchemy 2.0 runs the same models and statements in sync and async code, and what async buys is
-overlap. Ten queries that each spend 200 ms on the server take about 2 s one after another, and
-about 200 ms under `asyncio.gather`, while each query on its own runs no faster. The price is a
-lazy-loading error that sync code never raises, and a server connection for every query in flight.
+SQLAlchemy 2.0 runs the same models and statements in sync and async code. The difference lies in
+what the process does while it waits for the database. Sync code blocks until each query returns,
+while async code can start other queries in the meantime, so ten queries that each spend 200 ms on
+the server take about 2 s one after another and about 200 ms under `asyncio.gather`. Each query on
+its own takes just as long either way.
 
 ## Drivers and engines
 
-psycopg 3 implements both the blocking and the asyncio interfaces, so one `DATABASE_URL` can serve a
-sync engine for scripts and migrations and an async engine for the web app:
+SQLAlchemy chooses the database driver from the URL. psycopg 3 implements both the blocking and the
+asyncio interfaces, so one `DATABASE_URL` can serve a sync engine for scripts and migrations and an
+async engine for the web app:
 
 ```python
 from sqlalchemy import create_engine
@@ -32,40 +34,41 @@ one, which is why the lab uses psycopg by default. Most of the code is the same 
 | `select`, `insert`, `text`, models | identical | identical |
 | lazy loading | works | raises |
 
-Only the round trip is awaited. `await conn.execute(...)` fetches the rows, and `.one()`, `.all()`
-or `.scalars()` afterwards read them from memory.
+Only the round trip to the database is awaited. `await conn.execute(...)` fetches the rows, and
+`.one()`, `.all()` or `.scalars()` then read them from memory.
 
 ## Lazy loading in async code
 
-Touching a relationship that has not been loaded makes SQLAlchemy fire a query, and in
-`author.notes` there is nowhere to put the `await`. Rather than block the event loop, the async
-session raises:
+When code touches a relationship that has not been loaded yet, SQLAlchemy fires a query to load it.
+In sync code this happens quietly, but an attribute access such as `author.notes` has no place for
+an `await`, so the async session raises an error instead of blocking the event loop:
 
 ```python
 author = (await session.execute(select(Author))).scalars().first()
 author.notes   # MissingGreenlet: greenlet_spawn has not been called
 ```
 
-Attributes that `commit()` has expired fail the same way, which is why `AsyncSession` is almost
-always created with `expire_on_commit=False`. The best way out is to eager-load what you need with
-`selectinload(Author.notes)`. Failing that, load it explicitly with
-`await session.refresh(author, ["notes"])`, or add `AsyncAttrs` to the model and write
+Attributes that `commit()` has expired fail the same way, which is why `AsyncSession` is usually
+created with `expire_on_commit=False`. The simplest fix is to load relationships up front with
+`selectinload(Author.notes)`. A relationship can also be loaded explicitly with
+`await session.refresh(author, ["notes"])`, or through `AsyncAttrs` on the model as
 `await author.awaitable_attrs.notes`.
 
 ## Pool size and concurrency {#what-async-buys-overlapping-waits}
 
-Overlap needs a connection for each query in flight. `create_async_engine` defaults to
-`pool_size=5` and `max_overflow=10`, which lets 15 queries overlap while the 16th waits for a free
-connection. A thread pool gets the same overlap at the price of one thread per query. Either way the
-database does the same total work and only the client stops idling, so when the bottleneck is the
-database's CPU, async changes nothing.
+Each query in flight needs its own connection, so the connection pool limits how many queries can
+overlap. `create_async_engine` defaults to `pool_size=5` and `max_overflow=10`, which allows 15
+concurrent queries and makes the 16th wait for a free connection. A thread pool can reach the same
+overlap at the cost of one thread per query. In both cases the database does the same total work,
+and only the client spends less time waiting, so async does not help when the database's CPU is
+the bottleneck.
 
 ## A timed run {#watching-it-happen}
 
-The lab's app answers questions about the SQLAlchemy documentation with pgvector, and its
-`POST /trace` endpoint answers the same questions twice with tracing on. The sync run takes them one
-after another on one connection, and the async run gives each question its own task and connection
-under `gather`. The scene replays one such pair on a shared clock.
+The lab's app answers questions about the SQLAlchemy documentation with pgvector. Its `POST /trace`
+endpoint answers the same questions twice with tracing on, once one after another on a single
+connection and once with a task and a connection for each question under `gather`. The scene
+replays one such pair on a shared clock.
 
 ::: {.viz .scene .column-body-outset data-src="../viz/index.html?embed=1" data-poster="../images/city.gif" data-title="Vector search with pgvector, sync and async"}
 :::
@@ -76,15 +79,15 @@ documentation field as the HNSW walk returns. Run it live to orbit the scene, or
 [Open full screen](../viz/index.html){target="_blank"}.
 :::
 
-The async plate finishes while the sync one is still working through its queue, and the wall times
-in the corner show by how much. Each backend on the async plate is a separate Postgres process, so
-the concurrency gained on the client is paid for in connections on the server. Managing that cost is
-what [PgBouncer](pgbouncer.qmd) is for.
+The async side finishes while the sync side is still working through its questions, and the wall
+times in the corner show the difference. Each backend on the async side is a separate Postgres
+process, because Postgres starts one process per connection, so concurrency on the client costs
+connections on the server. [PgBouncer](pgbouncer.qmd) exists to manage that cost.
 
 ## Sync libraries inside async code
 
-pandas, Alembic and much older code want a sync connection. `run_sync` hands them one bridged onto
-the async connection, so a second engine is not needed:
+pandas, Alembic and much older code expect a sync connection. Inside async code, `run_sync` gives
+them one that runs on top of the async connection, so no second engine is needed:
 
 ```python
 async with async_engine.connect() as conn:
@@ -93,15 +96,15 @@ async with async_engine.connect() as conn:
 
 ## Choosing sync or async
 
-Use sync for scripts, notebooks, batch jobs and migrations, where every library works and stack
-traces are simpler. Use async for web services and for anything that waits on many databases or
-APIs at once, with eager loading, `expire_on_commit=False` and a pool sized for your concurrency. A
-mixed code base needs only one driver (psycopg 3), one URL and both engines, with `run_sync` where
-the two meet.
+Sync code suits scripts, notebooks, batch jobs and migrations, where every library works and stack
+traces are easier to read. Async code suits web services and programs that wait on many databases
+or APIs at once, provided relationships are loaded eagerly, `expire_on_commit` is off and the pool is
+sized for the expected concurrency. A code base that needs both can use one driver (psycopg 3), one
+URL and two engines, with `run_sync` where they meet.
 
 ::: {.callout-note}
 ## In the lab
 
-`src/db.py` is the async side of that setup. `src/settings.py` checks every server URL with
-pydantic-settings, so a malformed URL fails at import time, before the first query runs.
+`src/db.py` holds the async side of this setup. `src/settings.py` validates every server URL with
+pydantic-settings, so a malformed URL fails as soon as the module is imported.
 :::

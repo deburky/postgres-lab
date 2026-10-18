@@ -2,67 +2,62 @@
 
 ![](images/crew.svg){.column-body-outset .hero fig-alt="An isometric ink drawing of cartoon elephants at work around a Postgres database. One sends jobs from a laptop onto a belt, one picks a job off the belt, one carries it up a ramp into a hatch on the database, one inspects the hatch with a magnifying glass, one repairs the database with a wrench, one wheels cubes of data away, one stacks them on a pile and one checks them off on a clipboard."}
 
-Most applications keep their rows in Postgres and add a second system as soon as they need more,
-such as Redis or RabbitMQ for a queue, a separate store for vector search, or another pipeline for
-change data. This book tests how much of that second system one Postgres can replace. Each chapter
-gives the database one of those jobs, measures what it costs, and says where it falls short.
+Applications usually keep their rows in Postgres and send other work to separate systems, such as a
+queue for background jobs, a vector store for semantic search, or a pipeline that copies changes to
+an analytical database. This book shows how Postgres can do each of these jobs itself, how each one
+works inside the database, and where it stops being a good fit. Every chapter stands on its own,
+and the five parts below group them by the kind of work.
 
 ## The map
 
-![](images/world.svg){.column-body-outset .hero fig-alt="An isometric ink drawing of the book as a small world. A Postgres cylinder stands at the centre of a plate, and five districts around it stand for Python, Search, Queues, Moving data, and Access and operations."}
+![](images/world.svg){.column-body-outset .hero fig-alt="An isometric ink drawing of the book as a small world. A Postgres cylinder stands at the center of a plate, and five districts around it stand for Python, Search, Queues, Moving data, and Access and operations."}
 
 ::: {.map}
 ::: {}
 **Postgres from Python**
 
-The first part connects Python to Postgres with SQLAlchemy, in both sync and async styles. It also
-covers JSONB documents, PgBouncer, and PGlite, a Postgres compiled to WebAssembly that runs tests
-without a server.
+How SQLAlchemy talks to Postgres in sync and async code, how JSONB stores documents next to typed
+columns, what PgBouncer does for connections, and how PGlite runs Postgres inside a test process.
 :::
 ::: {}
 **Search**
 
-The second part follows pgvector from its four distance operators to three kinds of index (HNSW,
-DiskANN and PRISM), and then compares ways to load vectors in bulk.
+How pgvector compares and indexes embeddings, how its HNSW index differs from DiskANN and PRISM, and
+how to load and read vectors in bulk.
 :::
 ::: {}
 **Queues**
 
-The third part compares two ways to build a queue in a table. pgqueuer tracks running jobs with
-heartbeats, and pgmq hides a message that is being worked on behind a visibility timeout.
+How pgqueuer runs a job queue in a table, and how pgmq builds a message queue on a visibility
+timeout.
 :::
 ::: {}
 **Moving data**
 
-The fourth part streams changes from one Postgres to another with logical replication, and then
-into Apache Doris with its built-in CDC. Its last chapter keeps columnar DuckLake tables inside
-Postgres itself.
+How logical replication copies changes to a second Postgres, how Apache Doris follows Postgres with
+its own CDC job, and how pg_ducklake keeps columnar tables inside Postgres.
 :::
 ::: {}
 **Access and operations**
 
-The fifth part writes roles and grants as code with Pulumi and pgsesame, and runs the same servers
-on local Kubernetes.
+How Pulumi and pgsesame keep roles and grants in code, and how the same servers run on local
+Kubernetes.
 :::
 :::
 
 ## How to read it
 
-Each chapter opens with what the lab measured and then explains the mechanism behind it, along with
-the traps. The chapters stand alone, so they can be read in any order, and "the notebook"
-in a chapter always means the one named in its last line and rendered in the appendix.
-
-Some pages let you try things in the browser. The vector search scene in
-[Chapter 1](chapters/sqlalchemy.qmd) and the queue scene in [Chapter 8](chapters/pgqueuer.qmd)
-replay traces recorded from the lab's app, so the workers, the `NOTIFY`s and the HNSW searches are
-real even though no server runs behind the page. Each one starts as a recording, and Run it
-live opens the 3D version. The pgvector, JSONB and pgmq chapters end with a SQL console, which runs
-Postgres inside the page.
+Two chapters include a scene that replays a recorded run of the lab's app. In
+[Chapter 1](chapters/sqlalchemy.qmd) it shows sync and async vector searches side by side, and in
+[Chapter 8](chapters/pgqueuer.qmd) it shows workers sharing a queue table. Each scene plays as a
+recording until you press Run it live. The pgvector, JSONB and pgmq chapters end with a SQL console
+that runs Postgres in the page, and the appendix holds the notebooks behind the chapters, with
+their outputs.
 
 ::: {.callout-tip}
 ## Run it yourself
 
-Clone the repository, then run `cp .env.example .env`, `uv sync` and `just db`. That gives you
-Postgres 16 with pgvector on `localhost:5432`, and the notebooks run from there. A few need a second
-server, which their chapter names. [Running the lab](chapters/running-the-lab.qmd) has the details.
+Clone the repository, then run `cp .env.example .env`, `uv sync` and `just db` to start Postgres 16
+with pgvector on `localhost:5432`. A few notebooks need another server, and
+[Running the lab](chapters/running-the-lab.qmd) lists them.
 :::

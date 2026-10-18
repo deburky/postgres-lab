@@ -1,8 +1,8 @@
 # Running the lab {#sec-running}
 
-Everything in this book runs on one laptop with Docker, from the repository
-[deburky/postgres-lab](https://github.com/deburky/postgres-lab). This appendix shows how to start
-it, which server each chapter uses, and how to rerun the notebooks, the scenes and the book itself.
+The lab lives in the repository [deburky/postgres-lab](https://github.com/deburky/postgres-lab) and
+needs Docker. This appendix covers how to start it, which server each chapter uses, and how to rerun
+the notebooks, the scenes and the book.
 
 ## First run
 
@@ -16,7 +16,7 @@ just smoke               # insert three documents, search them by cosine distanc
 
 Running `just` on its own lists every recipe, and each recipe loads `.env` itself. For VS Code, the
 repository includes a [dev container](https://github.com/deburky/postgres-lab/tree/main/.devcontainer)
-with the database already running next to it.
+with the database running next to it.
 
 ## The servers
 
@@ -32,8 +32,8 @@ with the database already running next to it.
 
 ## Notebooks
 
-Papermill runs any notebook without opening it and saves the executed copy to `out/`, through these
-recipes:
+Papermill runs a notebook without opening it and saves the executed copy to `out/`. Two recipes
+wrap it:
 
 ```bash
 just nb pgmq_playground          # on its default server
@@ -48,13 +48,12 @@ just app                         # the API on :8000
 just viz                         # http://localhost:5173 (search) and /queue.html
 ```
 
-Run locally, the scenes talk to the API. The queue page's knobs are live, and every Run starts real
-workers. The copies in this book replay recorded traces instead. In `viz/`, `npm run save-traces`
-records them and `npm run build:book` builds the pages.
+Run locally, the scenes talk to the API, and every Run on the queue page starts real workers with
+the chosen settings. The copies in this book replay recorded traces instead, which
+`npm run save-traces` records and `npm run build:book` builds into the pages, both run in `viz/`.
 
-The SQL consoles in the pgvector, JSONB and pgmq chapters need no server at all. They run
-[PGlite](https://pglite.dev) in the page, and `viz/src/sql/labs.ts` holds their seed data and
-examples.
+The SQL consoles in the pgvector, JSONB and pgmq chapters need no server, since they run
+[PGlite](https://pglite.dev) in the page. `viz/src/sql/labs.ts` holds their seed data and examples.
 
 ## Building this book
 

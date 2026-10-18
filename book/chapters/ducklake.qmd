@@ -1,25 +1,22 @@
 # A lakehouse table inside Postgres
 
-On five million events, a DuckLake copy of a Postgres table answered analytical queries 2 to 9 times
-faster than the heap at a quarter of its size, and fetched a single row about a hundred times
-slower. The previous chapter got columnar speed by copying rows out of Postgres into Doris.
-[pg_ducklake](https://github.com/relytcloud/pg_ducklake) brings the columnar table into Postgres
-instead, and one statement makes the copy:
+[pg_ducklake](https://github.com/relytcloud/pg_ducklake) adds a column-oriented table to Postgres.
+`CREATE TABLE ... USING ducklake` writes the rows as Parquet files in the
+[DuckLake](https://ducklake.select) format, keeps the table's catalog (its files, statistics and
+snapshots) in ordinary tables in the `ducklake` schema of the same database, and runs every query
+that touches the table in DuckDB, which the extension embeds in the Postgres backend. One database
+can then hold row tables for the application and column tables for analytics, and a single query can
+join the two. One statement makes a columnar copy of a table:
 
 ```sql
 CREATE TABLE events_lake USING ducklake AS SELECT * FROM events;
 ```
 
-The table uses the [DuckLake](https://ducklake.select) format. Its rows are Parquet files, and its
-catalog of files, statistics and snapshots is ordinary tables in the `ducklake` schema of the same
-database. Queries that touch it run in DuckDB, which the extension runs inside the Postgres backend,
-so one database can hold row tables for the application and column tables for analytics, and one
-query can join them.
-
 ## Scans and lookups
 
-The notebook builds the same table twice, as an ordinary heap with a primary key and as a copy made
-with `USING ducklake`:
+The [pg_ducklake notebook](../notebooks/pg_ducklake_playground.ipynb) builds the same table of five
+million events twice, as an ordinary heap with a primary key and as a copy made with
+`USING ducklake`:
 
 | | heap | DuckLake |
 |---|---|---|
@@ -29,27 +26,29 @@ with `USING ducklake`:
 | top ten users by spend | 453 ms | 52 ms |
 | one row by id | 0.12 ms | 13 ms |
 
-The three analytical queries read a few columns of every row, which is what Parquet is laid out
-for, and DuckDB reads only those columns, compressed, in vectors of 2,048 values. That makes it 2 to
-9 times faster than the heap, even with Postgres running the heap scans on two parallel workers.
+The three analytical queries read a few columns of every row, which is the access pattern Parquet is
+laid out for. DuckDB reads only those columns, compressed, in vectors of 2,048 values, and answered
+2 to 9 times faster than the heap, even though Postgres scanned the heap with two parallel workers.
 
-The last row is the other side of the trade. A lake table has no index, so fetching one row means
-skipping the files and row groups whose min/max statistics rule it out and scanning the rest, where
-the heap only descends a B-tree. Keep the rows the application reads one at a time in heap tables.
+Fetching a single row works the other way round. A lake table has no index, so DuckDB skips the files
+and row groups whose min/max statistics rule the row out and scans the rest, while the heap only
+descends a B-tree. Rows that the application reads one at a time therefore belong in heap tables.
 
 ## Writes on immutable files
 
-Parquet files are never changed in place, so DuckLake keeps small writes out of them. An insert below
-a row limit is **inlined** into a Postgres table in the catalog, where queries read it alongside the
-Parquet until a flush, or the extension's background worker, writes it out. An update or delete
-writes a **delete file** naming the row positions that no longer count. In the notebook, updating
-1,000 rows and deleting 1,663 left the 78 MB data file untouched and added a 14 kB delete file and a
-19 kB file with the updated rows.
+Parquet files are never changed in place, so DuckLake handles small writes separately. An insert
+below a row limit is **inlined** into a Postgres table in the catalog, where queries read it
+alongside the Parquet until a flush, or the extension's background worker, writes it out. An update
+or delete writes a **delete file** that lists the row positions that no longer count. In the
+notebook, updating 1,000 rows and deleting 1,663 left the 78 MB data file untouched and added a
+14 kB delete file and a 19 kB file with the updated rows.
 
 ## Snapshots, time travel and a change feed
 
-Every commit is a snapshot in the catalog, with a note of what it changed, and `time_travel` and
-`table_changes` read back any snapshot that has not been expired:
+Every commit is a snapshot in the catalog, with a record of what it changed. `time_travel` reads the
+table as it was at any snapshot that has not been expired, and `table_changes` returns the rows
+inserted, updated and deleted between two snapshots, which is what an incremental job downstream
+needs:
 
 ```sql
 SELECT count(*) FROM ducklake.time_travel('events_lake'::regclass, 5) t;
@@ -57,8 +56,7 @@ SELECT * FROM ducklake.table_changes('events_lake'::regclass, 8, 9);
 ```
 
 After the update and delete the table had 4,998,337 rows, while its snapshot from before them still
-had 5,000,001. `table_changes` returns the rows inserted, updated and deleted between two snapshots,
-which is what an incremental job downstream needs.
+had 5,000,001.
 
 ::: {.callout-warning}
 ## A rough edge in 1.0.2
@@ -72,15 +70,15 @@ exist`. Afterwards, that connection's DuckDB has lost its catalog until it recon
 
 `CALL ducklake.set_partition('events_part'::regclass, 'device')` makes later writes split their
 files by device, so that a filter on device can skip whole files. On a local disk at this size it
-bought nothing, 28 ms for the partitioned table against 30 ms for the single file, because reading
-one compressed column of a 78 MB file is already cheap and the row-group statistics inside the file
-do part of a partition's job. Partitions pay off on object storage, where a skipped file is a skipped
-download, and `ducklake.default_table_path` points the files at S3, GCS, R2 or Azure.
+made no difference (28 ms for the partitioned table against 30 ms for the single file), because
+reading one compressed column of a 78 MB file is already cheap and the row-group statistics inside
+the file do part of a partition's job. Partitions matter more on object storage, where a skipped file
+is a skipped download, and `ducklake.default_table_path` points the files at S3, GCS, R2 or Azure.
 
 ## Joining rows and columns
 
-A lake table joins any Postgres table in plain SQL. DuckDB plans the whole statement and reads the
-heap side through its own Postgres scan, as the condensed plan shows:
+A lake table can be joined with any Postgres table in plain SQL. DuckDB plans the whole statement and
+reads the heap side through its own Postgres scan, as the condensed plan shows:
 
 ```text
 HASH_JOIN  user_id = user_id
@@ -91,9 +89,9 @@ HASH_JOIN  user_id = user_id
 ::: {.callout-tip}
 ## DuckLake or Doris
 
-pg_ducklake keeps one database and one transaction boundary. The analytical table is written by the
-same SQL as everything else and needs no pipeline. Doris is a second system to run, but it scales
-out on its own hardware and keeps analytical load off the primary. A Postgres server running DuckDB
-queries is still one server, so heavy analytics there compete with the application for CPU and
-memory.
+pg_ducklake keeps one database and one transaction boundary, and its analytical tables are written by
+the same SQL as everything else, with no pipeline. [Doris](doris.qmd) is a second system to run, but
+it scales out on its own hardware and keeps analytical load off the primary. A Postgres server that
+runs DuckDB queries is still one server, so heavy analytics there compete with the application for
+CPU and memory.
 :::

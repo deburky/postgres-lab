@@ -1,35 +1,37 @@
 # Postgres without a server
 
-[PGlite](https://pglite.dev/) runs the lab's own models unchanged, pgvector and HNSW index
-included, without a Postgres server. It is Postgres 17 compiled to WebAssembly, so the engine runs
-inside a JavaScript process with no daemon, port or Docker, and
-[py-pglite](https://pypi.org/project/py-pglite/) starts it from Python in about two seconds behind a
-socket that speaks the Postgres wire protocol. psycopg and SQLAlchemy connect to that socket as they
-would to any server, which makes PGlite a good database for tests and a poor one for anything else.
+[PGlite](https://pglite.dev/) is Postgres 17 compiled to WebAssembly, which runs the whole database
+engine inside a JavaScript process, with no server, port or Docker container. Tests that would
+otherwise need a running Postgres can start one in-process instead.
+[py-pglite](https://pypi.org/project/py-pglite/) starts PGlite from Python in about two seconds and
+puts a socket in front of it that speaks the Postgres wire protocol, so psycopg and SQLAlchemy
+connect to it as they would to any server.
 
 ## Compatibility
 
-`Base.metadata.create_all` creates the `documents` table with its `Vector(1536)` column and the
-JSONB `events` table, because PGlite bundles pgvector. Distances, nearest-neighbor queries and even
-an HNSW index work inside WebAssembly, and the code under test cannot tell that no server is
-involved.
+PGlite bundles pgvector, so the lab's own models run unchanged. `Base.metadata.create_all` creates
+the `documents` table with its `Vector(1536)` column and the JSONB `events` table, and distances,
+nearest-neighbor queries and an HNSW index all work inside WebAssembly. The code under test sees an
+ordinary Postgres.
 
 ## Limitations
 
-The notebook demonstrates or documents each of these limits:
+The [PGlite notebook](../notebooks/pglite_playground.ipynb) demonstrates or documents each of these
+limits:
 
-- PGlite serves one connection at a time, and while the notebook was being written a second
-  simultaneous connection crashed psycopg, so everything goes through one shared engine.
-- Messages above about 6 KB break the bridge in py-pglite 0.5.3, so a 1536-dimension vector cannot
-  be sent from Python. Generate vectors on the server side, or use smaller ones.
-- It runs at roughly half native speed, which is fine for tests and wrong for benchmarks.
+- PGlite serves one connection at a time. While the notebook was being written, a second
+  simultaneous connection crashed psycopg, so all queries go through one shared engine.
+- In py-pglite 0.5.3, a message above about 6 KB breaks the bridge. A 1536-dimension vector is
+  larger than that, so it has to be generated on the server side, or replaced by a smaller one.
+- PGlite runs at roughly half native speed, which is fine for tests and too slow for benchmarks.
 - Starting or stopping a manager kills every PGlite process on the machine, including one that a
   notebook or another test run is using.
 
 ## Test databases
 
-`create_all` runs once per test session, and each test runs inside a transaction that is rolled back
-at the end, so every test starts from the same state:
+A test suite can share one PGlite database for the whole session. `create_all` runs once, and each
+test runs inside a transaction that is rolled back at the end, so every test starts from the same
+state:
 
 ```python
 @pytest.fixture
@@ -40,7 +42,8 @@ def session(engine):
         trans.rollback()
 ```
 
-Against a Postgres container, PGlite compares like this:
+PGlite covers the SQL that tests usually exercise, while anything that depends on several
+connections or on real timings still needs a Postgres container:
 
 | need | PGlite | Docker Postgres |
 |---|---|---|
