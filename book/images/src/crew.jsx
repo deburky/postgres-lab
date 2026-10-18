@@ -26,15 +26,9 @@ items.push({k: 46 + 17.5, f: function(){
   drawCyl(46, 17.5, 0, 14, 6, SKY, 2);
   var t = P(46, 17.5, 14), a = 1.2247 * 2.4 * S, b = 0.7071 * 2.4 * S;
   style(doc.pathItems.ellipse(t[1] + b, t[0] - a, 2 * a, 2 * b), INK);
-  // the label wraps round the top band, between the upper ring (z = 14 * 2/3) and the rim (z = 14):
-  // type on the front half of an ellipse that matches the rings, its baseline just under mid-band
-  var c = P(46, 17.5, 14 * 5 / 6 - 0.55), ra = 1.2247 * 6 * S, rb = 0.7071 * 6 * S, pts = [];
-  for (var k = 0; k <= 48; k++){ var th = Math.PI * (1 + k / 48); pts.push([c[0] + ra * Math.cos(th), c[1] + rb * Math.sin(th)]); }
-  var guide = doc.pathItems.add(); guide.setEntirePath(pts); guide.filled = false; guide.stroked = false;
-  var label = doc.textFrames.pathText(guide);
-  label.contents = "Postgres";
-  var la = label.textRange.characterAttributes; la.textFont = MONO; la.size = 15; la.fillColor = INK;
-  label.textRange.paragraphAttributes.justification = Justification.CENTER;
+  // centred in the top band, between the upper ring (z = 14 * 2/3) and the rim (z = 14)
+  var label = text("Postgres", MONO, 15, INK), c = P(46, 17.5, 14 * 5 / 6), bb = 0.7071 * 6 * S;
+  label.position = [c[0] - label.width / 2, c[1] - bb + label.height / 2];
 }});
 // out of the database down a chute, to the warehouse pile
 box(52, 15.5, 0, 9, 3, 1.2, STEEL);
