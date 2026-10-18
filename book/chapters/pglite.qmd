@@ -11,13 +11,9 @@ connect to it as they would to any server.
 
 PGlite bundles pgvector, so the lab's own models run unchanged. `Base.metadata.create_all` creates
 the `documents` table with its `Vector(1536)` column and the JSONB `events` table, and distances,
-nearest-neighbor queries and an HNSW index all work inside WebAssembly. The code under test sees an
-ordinary Postgres.
+nearest-neighbor queries and an HNSW index all work inside WebAssembly.
 
 ## Limitations
-
-The [PGlite notebook](../notebooks/pglite_playground.ipynb) demonstrates or documents each of these
-limits:
 
 - PGlite serves one connection at a time. While the notebook was being written, a second
   simultaneous connection crashed psycopg, so all queries go through one shared engine.

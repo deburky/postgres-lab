@@ -54,8 +54,7 @@ the row and it drops into the `pgqueuer_log` strip at the front.
 
 ## pgqueuer features
 
-The table and the claim make up the queue itself, and the library adds what an application needs
-around them:
+Around the table and the claim, the library provides:
 
 - dedupe keys, so running the same ingest twice queues no extra work
 - retries with backoff, with `on_failure="hold"` keeping a job that ran out of attempts as `failed`
@@ -83,8 +82,7 @@ await queries.enqueue(
 ```
 
 Two workers ingest all 20 pages (407 chunks) in about 18 s, most of it spent loading the embedding
-model. The [pgqueuer notebook](../notebooks/pgqueuer_playground.ipynb) runs the same kind of
-workers as asyncio tasks.
+model.
 
 ::: {.callout-warning}
 ## Driver choice

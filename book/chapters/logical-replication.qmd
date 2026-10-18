@@ -6,7 +6,7 @@ stay in step with it. Pipelines are usually drawn as Postgres, then Debezium, th
 target, but Postgres can stream its own changes to a second Postgres with logical replication. The
 source publishes a set of tables, the second server subscribes to them, and each committed insert,
 update and delete arrives in commit order, about 9 ms after commit in the lab. Debezium, AWS DMS and
-Redshift zero-ETL read this same stream, so the failure modes below apply to them as well.
+Redshift zero-ETL also use logical replication and can fail in the same ways.
 
 ## Setup
 

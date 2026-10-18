@@ -66,5 +66,4 @@ The lab also read the same table back as an `(n, 384)` numpy array in three ways
 Binary `COPY ... TO STDOUT`, decoded in one numpy pass, was the fastest.
 [ADBC](https://arrow.apache.org/adbc/) has no `vector` type either, so the query casts the column to
 `real[]`, which arrives as `list<float>` and pays the array overhead again. ADBC still fits when the
-data is headed for Arrow anyway, as with Polars, DuckDB or Parquet. The comparison runs from
-`src/examples/bench/pg_copy.py`, and `src/vecio.py` keeps the binary decoder and the ADBC reader.
+data is headed for Arrow anyway, as with Polars, DuckDB or Parquet.

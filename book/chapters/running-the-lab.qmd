@@ -1,8 +1,7 @@
 # Running the lab {#sec-running}
 
 The lab lives in the repository [deburky/postgres-lab](https://github.com/deburky/postgres-lab) and
-needs Docker. This appendix covers how to start it, which server each chapter uses, and how to rerun
-the notebooks, the scenes and the book.
+needs Docker.
 
 ## First run
 

@@ -20,9 +20,7 @@ built for, which is set by its operator class (opclass):
 | `a <+> b` | `col.l1_distance(b)` | taxicab distance | `vector_l1_ops` |
 
 Most embedding models produce vectors of length 1, and for those cosine distance and inner product
-rank results in the same order, with inner product saving a division. The notebook starts with a
-dozen hand-made three-dimensional vectors whose axes mean something (`[fruit, tech, sport]`), so
-that each distance can be worked out by hand before Postgres computes it.
+rank results in the same order, with inner product saving a division.
 
 ## Similarity queries
 

@@ -5,8 +5,7 @@
 Applications usually keep their rows in Postgres and send other work to separate systems, such as a
 queue for background jobs, a vector store for semantic search, or a pipeline that copies changes to
 an analytical database. This book shows how Postgres can do each of these jobs itself, how each one
-works inside the database, and where it stops being a good fit. Every chapter stands on its own,
-and the five parts below group them by the kind of work.
+works inside the database, and where it stops being a good fit.
 
 ## The map
 

@@ -84,5 +84,4 @@ from environment variables instead of the file.
 
 Either tool works, as long as only one of them manages the roles on a given server. Pulumi fits when
 database access is one part of a larger infrastructure program, and pgsesame fits when the database
-is the whole concern and the plan should be readable SQL. In the lab, `just sesame plan pg18` and
-`just sesame apply pg18` run pgsesame, and `pulumi/` holds the Pulumi stack.
+is the whole concern and the plan should be readable SQL.

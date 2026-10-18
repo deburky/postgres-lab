@@ -101,10 +101,3 @@ traces are easier to read. Async code suits web services and programs that wait 
 or APIs at once, provided relationships are loaded eagerly, `expire_on_commit` is off and the pool is
 sized for the expected concurrency. A code base that needs both can use one driver (psycopg 3), one
 URL and two engines, with `run_sync` where they meet.
-
-::: {.callout-note}
-## In the lab
-
-`src/db.py` holds the async side of this setup. `src/settings.py` validates every server URL with
-pydantic-settings, so a malformed URL fails as soon as the module is imported.
-:::

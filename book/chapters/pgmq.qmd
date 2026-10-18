@@ -9,7 +9,7 @@ hands out, pgmq hides each one for a set number of seconds, after which it becom
 ## Visibility timeout
 
 `read` moves a message's `vt` timestamp into the future, and no other reader sees the message until
-that moment passes. A queue's whole life takes four calls:
+that moment passes. A queue's life in SQL looks like this:
 
 ```sql
 SELECT pgmq.create('jobs');
@@ -110,10 +110,3 @@ status whose heartbeat the library refreshes.
 pgmq suits a queue that several languages or services share, or one fed from SQL itself, where an
 SQS-like API matters. pgqueuer suits a Python application that wants a worker framework with
 retries, limits and schedules already written.
-
-::: {.callout-note}
-## In the lab
-
-pgmq 1.13 has no Debian package for Postgres 18 yet, so `docker/Dockerfile.pg18` builds it from
-source. It is plain SQL, installed with PGXS.
-:::

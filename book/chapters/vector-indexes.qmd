@@ -1,8 +1,8 @@
 # Three ways to index a vector
 
 A vector index speeds up nearest-neighbor search by examining only a small part of the table, at the
-cost of sometimes missing a true neighbor. Postgres can index a `vector` column in three ways. HNSW
-comes with pgvector, DiskANN with Timescale's pgvectorscale, and PRISM with the newer
+cost of sometimes missing a true neighbor. HNSW comes
+with pgvector, DiskANN with Timescale's pgvectorscale, and PRISM with the newer
 pg_vectorsearch. The first two are graphs that a query walks, and the third is a set of partitions
 that a query scans.
 
@@ -21,7 +21,7 @@ reads the full vectors only to rescore the best candidates.
 graph. k-means splits the rows into `nlist` partitions, in the style of an IVF index, and each vector
 is stored as a RaBitQ code with an error bound. A query scans the `prism.nprobe` nearest partitions
 and reads full vectors only for candidates that the error bound cannot settle. PRISM indexes
-pgvector's column in place, and creating and tuning it takes three statements:
+pgvector's column in place:
 
 ```sql
 CREATE INDEX ON demo_docs USING prism (embedding vec32_cosine_ops);  -- build after loading
