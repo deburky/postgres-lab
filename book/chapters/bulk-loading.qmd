@@ -1,11 +1,7 @@
 # Loading vectors fast
 
-An embedding pipeline writes many floats, and the way they travel to Postgres decides whether a
-load takes seconds or minutes. The lab loaded the same 50,000 rows of 384-dimension vectors in five
-ways, from the ORM, which most code starts with, to binary `COPY`, which sends each vector in
-pgvector's own binary format.
-
-## Load methods
+An embedding pipeline writes float vectors into a database. The lab loads 50,000 rows of 384-dimension vectors in five
+ways:
 
 ```
     method   | seconds | rows/s |  MB/s | vs orm
@@ -27,7 +23,7 @@ The rows of the table are, in order:
 - [pgpq](https://github.com/adriangb/pgpq), which converts Parquet through Arrow to the Postgres
   binary format and loads into a `FLOAT4[]` staging table, because pgpq has no `vector` type
 
-Binary `COPY` was about twenty times faster than the ORM. pgpq also sends binary floats, but as a
+Binary `COPY` was about **twenty times** faster than the ORM. pgpq also sends binary floats, but as a
 Postgres array, which puts a 4-byte length in front of every element, so a `FLOAT4[]` takes twice the
 bytes of a `vector` on the wire, before an `INSERT ... SELECT` even casts the rows.
 
@@ -47,13 +43,14 @@ with conn.cursor() as cur, cur.copy("COPY items (title, embedding) FROM STDIN (F
 ::: {.callout-tip}
 ## Index build order
 
-An HNSW index is cheaper to build once over the loaded table than to maintain row by row during the
-load, so it is best created after the data is in.
+Building an HNSW index once over a loaded table is cheaper than updating it row by row, which helps
+when filling a new table. A table that already serves searches needs its index during the load,
+since searches without it scan every row.
 :::
 
-## Reading vectors back
+## Reading vectors
 
-The lab also read the same table back as an `(n, 384)` numpy array in three ways:
+The lab experiments read the same table as an `(n, 384)` numpy array in three ways:
 
 ```
  read back as numpy | seconds | rows/s |  MB/s | vs psycopg_rows

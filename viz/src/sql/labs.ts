@@ -279,4 +279,107 @@ UNION ALL SELECT 'audit', count(*) FROM pgmq.q_audit;`,
   ],
 };
 
-export const LABS: Record<string, Lab> = { vectors: VECTORS, jsonb: JSONB, pgmq: PGMQ };
+// -------------------------------------------------------------------------------
+// graph retrieval
+// -------------------------------------------------------------------------------
+const GRAPH: Lab = {
+  title: "A document graph in your browser",
+  blurb: "The doc-search corpus as a graph: 407 chunks, 440 API entities and 1,436 mentions. No embeddings.",
+  scripts: ["doc-graph.sql"],
+  seed: `SELECT 1;`,
+  examples: [
+    {
+      label: "Hubs",
+      sql: `-- how many chunks mention each entity; a few names appear almost everywhere
+SELECT e.name, count(*) AS chunks
+FROM mentions m JOIN entities e ON e.id = m.entity_id
+GROUP BY e.name
+ORDER BY chunks DESC
+LIMIT 10;`,
+    },
+    {
+      label: "A chunk's entities",
+      sql: `-- the API names in the chunks of one section
+SELECT c.id, e.name
+FROM chunks c
+JOIN mentions m ON m.chunk_id = c.id
+JOIN entities e ON e.id = m.entity_id
+WHERE c.title = 'Preventing Implicit IO when Using AsyncSession'
+ORDER BY c.id, e.name;`,
+    },
+    {
+      label: "Two hops",
+      sql: `-- chunks that share an entity with chunk 201, counted by shared entities
+SELECT c.page, c.title, count(*) AS shared
+FROM mentions m1
+JOIN mentions m2 ON m2.entity_id = m1.entity_id AND m2.chunk_id <> m1.chunk_id
+JOIN chunks c ON c.id = m2.chunk_id
+WHERE m1.chunk_id = 201
+GROUP BY c.page, c.title
+ORDER BY shared DESC
+LIMIT 10;`,
+    },
+    {
+      label: "Weighted by IDF",
+      sql: `-- the same hop, with each shared entity weighted by ln(N / df), so hubs count for little
+WITH idf AS (
+  SELECT entity_id, ln((SELECT count(*) FROM chunks)::float / count(*)) AS w
+  FROM mentions GROUP BY entity_id
+)
+SELECT c.page, c.title, round(sum(idf.w)::numeric, 2) AS score
+FROM mentions m1
+JOIN mentions m2 ON m2.entity_id = m1.entity_id AND m2.chunk_id <> m1.chunk_id
+JOIN idf ON idf.entity_id = m1.entity_id
+JOIN chunks c ON c.id = m2.chunk_id
+WHERE m1.chunk_id = 201
+GROUP BY c.page, c.title
+ORDER BY score DESC
+LIMIT 10;`,
+    },
+    {
+      label: "Recursive walk",
+      sql: `-- new nodes at each depth from chunk 201: even depths are chunks, odd depths are entities
+WITH RECURSIVE edges (src, dst) AS (
+  SELECT 'c' || chunk_id, 'e' || entity_id FROM mentions
+  UNION ALL
+  SELECT 'e' || entity_id, 'c' || chunk_id FROM mentions
+),
+walk (node, depth) AS (
+  SELECT 'c201', 0
+  UNION
+  SELECT e.dst, w.depth + 1
+  FROM walk w JOIN edges e ON e.src = w.node
+  WHERE w.depth < 4
+)
+SELECT depth, count(*) AS new_nodes
+FROM (SELECT node, min(depth) AS depth FROM walk GROUP BY node) first_seen
+GROUP BY depth
+ORDER BY depth;`,
+    },
+    {
+      label: "Path between entities",
+      sql: `-- chains from selectinload to create_engine through shared chunks, skipping hubs
+WITH RECURSIVE kept AS (
+  SELECT entity_id FROM mentions GROUP BY entity_id HAVING count(*) <= 20
+),
+walk (entity_id, path, via) AS (
+  SELECT id, ARRAY[name], ARRAY[]::text[] FROM entities WHERE name = 'selectinload'
+  UNION ALL
+  SELECT m2.entity_id, w.path || e.name, w.via || c.title
+  FROM walk w
+  JOIN mentions m1 ON m1.entity_id = w.entity_id
+  JOIN mentions m2 ON m2.chunk_id = m1.chunk_id AND m2.entity_id <> w.entity_id
+  JOIN kept ON kept.entity_id = m2.entity_id
+  JOIN entities e ON e.id = m2.entity_id
+  JOIN chunks c ON c.id = m1.chunk_id
+  WHERE cardinality(w.path) < 4 AND NOT e.name = ANY (w.path)
+)
+SELECT array_to_string(path, ' -> ') AS path, via AS through_sections
+FROM walk
+WHERE path[cardinality(path)] = 'create_engine'
+LIMIT 5;`,
+    },
+  ],
+};
+
+export const LABS: Record<string, Lab> = { vectors: VECTORS, jsonb: JSONB, pgmq: PGMQ, graph: GRAPH };

@@ -4,12 +4,12 @@
 engine inside a JavaScript process, with no server, port or Docker container. Tests that would
 otherwise need a running Postgres can start one in-process instead.
 [py-pglite](https://pypi.org/project/py-pglite/) starts PGlite from Python in about two seconds and
-puts a socket in front of it that speaks the Postgres wire protocol, so psycopg and SQLAlchemy
-connect to it as they would to any server.
+puts a socket in front of it that speaks the Postgres wire protocol, so psycopg and SQLAlchemy can
+connect to it.
 
 ## Compatibility
 
-PGlite bundles pgvector, so the lab's own models run unchanged. `Base.metadata.create_all` creates
+PGlite bundles pgvector, so the lab's experiments run unchanged. `Base.metadata.create_all` creates
 the `documents` table with its `Vector(1536)` column and the JSONB `events` table, and distances,
 nearest-neighbor queries and an HNSW index all work inside WebAssembly.
 

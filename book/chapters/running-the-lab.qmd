@@ -13,7 +13,7 @@ just db                  # Postgres 16 + pgvector + pgvectorscale
 just smoke               # insert three documents, search them by cosine distance
 ```
 
-Running `just` on its own lists every recipe, and each recipe loads `.env` itself. For VS Code, the
+`just` lists every recipe, and each recipe loads `.env`. For VS Code, the
 repository includes a [dev container](https://github.com/deburky/postgres-lab/tree/main/.devcontainer)
 with the database running next to it.
 
@@ -51,7 +51,7 @@ Run locally, the scenes talk to the API, and every Run on the queue page starts 
 the chosen settings. The copies in this book replay recorded traces instead, which
 `npm run save-traces` records and `npm run build:book` builds into the pages, both run in `viz/`.
 
-The SQL consoles in the pgvector, JSONB and pgmq chapters need no server, since they run
+The SQL consoles in the pgvector, graph, JSONB and pgmq chapters need no server, since they run
 [PGlite](https://pglite.dev) in the page. `viz/src/sql/labs.ts` holds their seed data and examples.
 
 ## Building this book
@@ -62,3 +62,10 @@ just book-preview                # live preview while editing
 ```
 
 Pushing to `main` publishes the book to GitHub Pages.
+
+## Further reading
+
+[PGSimCity](https://github.com/NikolayS/pgsimcity) by Nikolay Samokhvalov simulates the internals of
+Postgres 18 in the browser as a 3D city, from the stages of a statement to shared buffers, WAL,
+checkpoints and autovacuum, and lets the reader trigger failures such as checkpoint storms or an
+xmin horizon that stalls vacuum.

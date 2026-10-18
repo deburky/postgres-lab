@@ -1,11 +1,9 @@
 # Access as code
 
 ![](../images/spot-5.svg){.spot fig-alt="A gate with a yellow lintel, three pods and a sheet of paper on a mint tile. An elephant in a vest checks a clipboard."}
-Roles and grants are often typed into a database by hand and never written down. Keeping them in
-code puts the rules in a file, lets a tool compare that file with the server, and turns each change
-into a diff that can be reviewed. The lab writes one small access model twice, once with Pulumi and
-once with pgsesame. Pulumi compares its program with a state file, so a grant changed by hand on the
-server only shows up after a refresh, while pgsesame keeps no state and reads the server's catalog
+Roles and grants are often typed into a database by hand. Keeping them in
+code puts the rules in a file, which can be audited later on. The lab uses Pulumi and pgsesame for access as code.
+Pulumi compares its program with a state file, while pgsesame keeps no state and reads the server's catalog
 every time it plans.
 
 ## The access model

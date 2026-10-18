@@ -1,9 +1,8 @@
 # Three ways to index a vector
 
 A vector index speeds up nearest-neighbor search by examining only a small part of the table, at the
-cost of sometimes missing a true neighbor. HNSW comes
-with pgvector, DiskANN with Timescale's pgvectorscale, and PRISM with the newer
-pg_vectorsearch. The first two are graphs that a query walks, and the third is a set of partitions
+cost of sometimes missing a true neighbor. HNSW comes with pgvector, DiskANN with Timescale's
+pgvectorscale, and PRISM with the newer pg_vectorsearch. The first two are graphs that a query walks, and the third is a set of partitions
 that a query scans.
 
 ## Index designs

@@ -18,15 +18,14 @@ SELECT msg_id, read_ct, message FROM pgmq.read('jobs', 30, 1);   -- hidden for 3
 SELECT pgmq.archive('jobs', 1);                                  -- done: moved to pgmq.a_jobs
 ```
 
-A consumer that finishes its work deletes or archives the message. A consumer that crashes does
-nothing, and once `vt` passes the message is visible again, with its `read_ct` column counting the
-new attempt. In the [pgmq notebook](../notebooks/pgmq_playground.ipynb), a message read with a
+A consumer that finishes its work deletes or archives the message.
+In the [pgmq notebook](../notebooks/pgmq_playground.ipynb), a message read with a
 2 second timeout by a consumer that then died came back 2.2 seconds later with `read_ct` 2.
 
 ## Delivery guarantees
 
 Delivery is at least once, so a message can reach more than one consumer. pgmq cannot tell a slow
-consumer from a crashed one, which is why long work has to call `set_vt` to extend its lease (the
+consumer from a broken one, which is why long work has to call `set_vt` to extend its lease (the
 time it keeps the message hidden). In the notebook, a 3 second job on a 2 second timeout lost its
 message to a second consumer, and the same job kept it when it extended the lease every half
 second. `pop` reads and deletes a message in one statement instead, which gives at-most-once

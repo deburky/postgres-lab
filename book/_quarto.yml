@@ -28,6 +28,7 @@ book:
       chapters:
         - chapters/pgvector.qmd
         - chapters/vector-indexes.qmd
+        - chapters/graph-rag.qmd
         - chapters/bulk-loading.qmd
     - part: "Queues"
       chapters:
@@ -50,6 +51,7 @@ book:
     - notebooks/pgbouncer_playground.ipynb
     - notebooks/pglite_playground.ipynb
     - notebooks/pgvector_playground.ipynb
+    - notebooks/graph_rag_playground.ipynb
     - notebooks/pgqueuer_playground.ipynb
     - notebooks/pgmq_playground.ipynb
     - notebooks/logical_replication.ipynb

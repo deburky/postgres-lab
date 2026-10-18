@@ -6,7 +6,7 @@ const b = await chromium.launch({ channel: "chrome" });
 const p = await b.newPage({ viewport: { width: 1000, height: 900 } });
 p.on("pageerror", (e) => console.log("PAGEERROR", e.message));
 const idle = () => p.waitForFunction(() => !document.getElementById("run").disabled || /did not/.test(document.getElementById("status").textContent), null, { timeout: 90000 });
-for (const lab of ["vectors", "jsonb", "pgmq"]) {
+for (const lab of ["vectors", "jsonb", "pgmq", "graph"]) {
   const t0 = Date.now();
   await p.goto(`${base}/sql.html?lab=${lab}`);
   await idle();

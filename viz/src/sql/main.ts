@@ -1,5 +1,5 @@
 // A SQL console for the book: a real Postgres (PGlite) in a Web Worker, seeded per chapter with
-// ?lab=vectors|jsonb|pgmq, preset queries as chips, and the result sets drawn as tables.
+// ?lab=vectors|jsonb|pgmq|graph, preset queries as chips, and the result sets drawn as tables.
 // ?embed=1 hides the page title, since the chapter around the iframe already has one.
 
 import { PGliteWorker } from "@electric-sql/pglite/worker";

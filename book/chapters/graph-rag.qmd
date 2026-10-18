@@ -1,0 +1,145 @@
+# Graphs next to vectors
+
+Graph retrieval, often called **GraphRAG**, adds a graph of entities to vector search. A query first
+takes the chunks whose embeddings lie closest to the question, then follows the graph from those
+chunks to others that mention the same entities, and passes both sets to the model as context.
+Postgres can hold the graph in two ordinary tables next to the `vector` column and walk it with a
+join or a recursive query. On the lab's doc-search corpus, the walk added context that the five
+nearest chunks missed, but taking the next five nearest chunks added more.
+
+## The graph tables
+
+An entity is a named thing that the text talks about, and a mention links an entity to a chunk
+that names it. Chunks and entities together form a bipartite graph, in which a step from a chunk
+always leads to an entity and a step from an entity always leads back to a chunk:
+
+```sql
+CREATE TABLE doc_entities (id serial PRIMARY KEY, name text UNIQUE NOT NULL);
+CREATE TABLE doc_mentions (
+    chunk_id int REFERENCES doc_chunks (id) ON DELETE CASCADE,
+    entity_id int REFERENCES doc_entities (id) ON DELETE CASCADE,
+    PRIMARY KEY (chunk_id, entity_id)
+);
+CREATE INDEX ON doc_mentions (entity_id);
+```
+
+The primary key serves the step from a chunk to its entities, and the index on `entity_id` serves
+the step back. GraphRAG libraries usually ask an LLM to extract entities and relations from each
+chunk. The SQLAlchemy documentation behind the lab's [doc-search app](pgvector.qmd#the-doc-search-app)
+needs no model, because its reStructuredText source marks every API name with a role such as
+``:class:`.Session` `` or ``:meth:`.Session.commit` ``. The
+[graph notebook](../notebooks/graph_rag_playground.ipynb) reads these roles while it re-chunks the
+pages exactly as the ingest did, and finds 440 entities with 1,436 mentions across the 407 chunks.
+Only 33 chunks mention no API name.
+
+## Hops and hubs
+
+A few entities appear in a large share of the chunks. `Session` is mentioned in 104 of the 407,
+`Table` in 53 and `Engine` in 44, while 242 entities appear in a single chunk and connect nothing.
+Through the hubs, an average chunk lies two hops from 61 others, and from 11 once the nine entities
+that appear in more than 20 chunks are left out.
+
+A recursive CTE walks the graph to any depth. Starting from a chunk of the section on implicit IO in
+`AsyncSession`, the walk below reached 146 chunks at depth 2 and 188 more at depth 4, so 335 of the
+407 chunks lay within four hops. Without the hubs it reached 110.
+
+```sql
+WITH RECURSIVE edges (src, dst) AS (
+    SELECT 'c' || chunk_id, 'e' || entity_id FROM doc_mentions
+    UNION ALL
+    SELECT 'e' || entity_id, 'c' || chunk_id FROM doc_mentions
+),
+walk (node, depth) AS (
+    SELECT 'c201', 0
+    UNION
+    SELECT e.dst, w.depth + 1
+    FROM walk w JOIN edges e ON e.src = w.node
+    WHERE w.depth < 4
+)
+SELECT depth, count(*) AS new_nodes
+FROM (SELECT node, min(depth) AS depth FROM walk GROUP BY node) first_seen
+GROUP BY depth ORDER BY depth;
+```
+
+The condition on `depth` ends the walk, because the graph has cycles. `UNION` drops duplicate rows,
+and the outer query counts each node at the depth where it first appears.
+
+## Expansion from the nearest chunks
+
+A retrieval step needs only two hops, from the seed chunks that vector search returned through their
+entities to other chunks. The query below ranks each new chunk by the entities it shares with the
+seeds, and weights each shared entity by its inverse document frequency, `ln(N / df)`, so that a link
+through `Session` counts for little and a link through a rare name such as `AsyncSession.run_sync`
+counts for a lot:
+
+```sql
+WITH seeds AS (SELECT unnest($1::int[]) AS id),
+idf AS (
+    SELECT entity_id, ln((SELECT count(*) FROM doc_chunks)::float / count(*)) AS w
+    FROM doc_mentions GROUP BY entity_id
+)
+SELECT m2.chunk_id, sum(idf.w) AS score
+FROM seeds
+JOIN doc_mentions m1 ON m1.chunk_id = seeds.id
+JOIN doc_mentions m2 ON m2.entity_id = m1.entity_id
+JOIN idf ON idf.entity_id = m1.entity_id
+WHERE m2.chunk_id NOT IN (SELECT id FROM seeds)
+GROUP BY m2.chunk_id
+ORDER BY score DESC
+LIMIT 5;
+```
+
+The query took about 2 ms on top of the vector search, which took about the same.
+
+## Retrieval compared
+
+The notebook asks 14 questions about the documentation, many of which span two pages, such as lazy
+loading in the query guide and implicit IO in the asyncio extension. Each question lists the sections
+that answer it, chosen by hand, and recall is the share of those sections that at least one retrieved
+chunk belongs to. Every method except the first returns ten chunks:
+
+| method | mean recall | better than vector 10 | worse than vector 10 |
+|---|---|---|---|
+| vector 5 | 0.63 | 0 | 6 |
+| vector 10 | 0.79 | | |
+| vector 5 + graph 5, weighted by IDF | 0.72 | 1 | 4 |
+| vector 5 + graph 5, unweighted | 0.71 | 1 | 4 |
+| vector 5 + the 5 nearest two-hop neighbours | 0.79 | 1 | 1 |
+
+Graph expansion raised recall from 0.63 to 0.72 over the five nearest chunks alone, but the next five
+nearest chunks raised it to 0.79. The graph won one question, on `expire_on_commit`, where it brought
+in the section on implicit IO in `AsyncSession` from another page, and lost four. Using the graph only
+as a filter, by taking the nearest chunks among the seeds' two-hop neighbours, picked the same five
+chunks as plain vector search on 9 of the 14 questions, because the hubs put most chunks within two
+hops of any seed.
+
+In this corpus the edges are API names, and the results suggest that chunks sharing API names are
+already close in embedding space, so the graph mostly finds what similarity finds. A graph should add more where its
+edges carry relations that similarity misses, such as facts about the same company spread over
+documents that otherwise share few words, although the lab did not measure that case.
+
+## Try it here
+
+The console loads the same graph without the embeddings: the 407 chunks with their pages and section
+titles, the 440 entities and the 1,436 mentions. The examples count the hubs, take two hops from
+chunk 201 with and without IDF weights, run the recursive walk, and find chains of entities from
+`selectinload` to `create_engine`.
+
+::: {.viz .console .column-page}
+<iframe src="../viz/sql.html?lab=graph&embed=1" loading="lazy" title="Document graph SQL console"></iframe>
+:::
+
+::: {.viz-caption .column-page}
+This console runs Postgres 18 in the page, compiled to WebAssembly by [PGlite](https://pglite.dev).
+The first visit downloads about 10 MB, and after that it starts in a second or two. Your edits stay
+in this tab, and Reset data starts over. [Open full screen](../viz/sql.html?lab=graph){target="_blank"}.
+:::
+
+::: {.callout-tip}
+## A GraphRAG library
+
+[postgres-graph-rag](https://github.com/h4gen/postgres-graph-rag) (0.1.2, MIT) packages the same
+design for arbitrary text. It asks OpenAI or Gemini to extract entities and relations, stores them
+with pgvector embeddings in one Postgres database, and expands a vector search with recursive CTEs.
+Its README describes it as an early version whose interface can still change.
+:::

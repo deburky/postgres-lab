@@ -3,8 +3,8 @@
 A `JSONB` column holds a whole JSON document, stored in a binary form that Postgres can index, next
 to the ordinary typed columns of the same row. It suits data whose shape varies from row to row,
 such as optional attributes or payloads kept exactly as they arrived, and SQLAlchemy exposes each
-JSONB operator as a Python expression. The one behavior to keep in mind is that a missing key reads
-as SQL `NULL`, which changes the result of any filter that negates a comparison.
+JSONB operator as a Python expression. A missing key reads as SQL `NULL`, which changes the result
+of negated filters.
 
 ## Reading values out
 
@@ -72,8 +72,7 @@ column.
 ## Try it here
 
 The console runs these operators on a small `events` table whose `payload` holds a user, a device on
-most rows, and line items. Each chip loads a query and runs it, and the SQL can be edited to run
-other queries.
+most rows, and line items.
 
 ::: {.viz .console .column-page}
 <iframe src="../viz/sql.html?lab=jsonb&embed=1" loading="lazy" title="JSONB SQL console"></iframe>

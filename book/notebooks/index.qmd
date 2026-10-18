@@ -10,6 +10,7 @@ on one laptop. The book build does not run them again. To run one yourself, see 
 | [PgBouncer measured](pgbouncer_playground.ipynb) | [PgBouncer](../chapters/pgbouncer.qmd) | pg16 + PgBouncer |
 | [PGlite playground](pglite_playground.ipynb) | [Postgres without a server](../chapters/pglite.qmd) | none |
 | [pgvector playground](pgvector_playground.ipynb) | [Vectors](../chapters/pgvector.qmd), [Indexes](../chapters/vector-indexes.qmd) | pg18 |
+| [Graph retrieval](graph_rag_playground.ipynb) | [Graphs next to vectors](../chapters/graph-rag.qmd) | pg16 |
 | [pgqueuer taken apart](pgqueuer_playground.ipynb) | [A job queue](../chapters/pgqueuer.qmd) | pg16 |
 | [pgmq playground](pgmq_playground.ipynb) | [A message queue](../chapters/pgmq.qmd) | pg18 |
 | [Logical replication](logical_replication.ipynb) | [CDC](../chapters/logical-replication.qmd) | pg16 + replica |

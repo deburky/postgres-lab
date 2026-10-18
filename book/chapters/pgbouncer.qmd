@@ -9,14 +9,14 @@ not make a single connection any faster to open.
 
 ## Connection cost
 
-Most of the time it takes to open a connection goes into authentication. With `scram-sha-256` every
-login runs thousands of PBKDF2 iterations, and PgBouncer has to verify the client's password the same
-way before it hands over a server connection, so a client that connects over and over spends about
-the same time with or without it. Starting the Postgres process itself takes about a millisecond on
-the lab's containers. In a burst of 80 simultaneous connections PgBouncer was slower than a direct
-connection, because it runs on a single thread and checks the passwords one after another, while 80
-Postgres backends check theirs in parallel. A pooler saves more where a new connection is expensive
-for other reasons, such as TLS across a network or a cold catalog cache.
+Most of the time it takes to open a connection goes into checking the password. PgBouncer checks it
+too, so opening a connection through PgBouncer takes about as long as opening one directly. Starting
+the Postgres process itself takes about a millisecond.
+
+With 80 clients connecting at once, PgBouncer was slower than a direct connection. It runs on a
+single thread and checks the passwords one at a time, while 80 Postgres processes check theirs in
+parallel. A pooler saves more time when connecting is slow for other reasons, such as TLS over a
+network.
 
 ## Clients beyond max_connections
 

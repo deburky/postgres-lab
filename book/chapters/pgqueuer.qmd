@@ -8,6 +8,30 @@ the rows it refers to exists only if those rows were committed. Workers take job
 with `FOR UPDATE SKIP LOCKED`, and a trigger that calls `NOTIFY` on every insert wakes idle workers
 within milliseconds, so they do not have to poll.
 
+## Enqueueing from SQL
+
+A queue in the database can also take jobs from SQL itself, for example from a trigger or from the
+transaction that writes an order. [DBOS](https://docs.dbos.dev), a durable workflow library built on
+Postgres, provides `dbos.enqueue_workflow` in its system database for this. The function inserts a row
+into DBOS's `workflow_status` table, and a running DBOS application
+picks the workflow up and executes it:
+
+```sql
+DO $$
+DECLARE workflow_id text;
+BEGIN
+  workflow_id := dbos.enqueue_workflow(
+    workflow_name => 'processOrder',
+    class_name => 'com.example.OrderProcessor',
+    queue_name => 'orders',
+    positional_args => ARRAY['"order-123"'::json]
+  );
+END $$;
+```
+
+The arguments are JSON in DBOS's portable format, so an application in another language, here Java,
+can read them. The lab does not run DBOS.
+
 ## Claiming a job
 
 A worker claims jobs in one short statement. It selects the oldest waiting rows with

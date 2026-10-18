@@ -1,10 +1,8 @@
 # The same servers on local Kubernetes
 
-The lab's Postgres images also run unchanged as pods on a local Kubernetes cluster, so the
+The lab's Postgres images also run as pods on a local Kubernetes cluster, so the
 concurrency tests in the [pgvector notebook](../notebooks/pgvector_playground.ipynb) can run against
-a pod as well as against compose. Every local cluster here is a container inside Docker Desktop's VM,
-on the same cores as compose, which means a comparison between the two measures only what
-Kubernetes networking and pods add.
+a pod as well as against compose. Every local cluster is a container inside Docker Desktop's VM.
 
 ## kind, k3d and k3s
 
@@ -36,7 +34,7 @@ Kubernetes matters (kind) or a small cluster that starts quickly is enough (k3d)
 
 Docker Desktop's own Kubernetes can only be switched on in its settings, and kind's node needs
 kubeadm to run inside it, so neither can be started from the Docker SDK (docker-py). k3s can, because
-it is a single binary that bootstraps the whole cluster by itself, which is also why k3d is only a
+it is a single binary that bootstraps the whole cluster, which is also why k3d is only a
 thin wrapper around the Docker client. `k8s/k3s.py` does the same job as k3d in about 150 lines of
 docker-py:
 

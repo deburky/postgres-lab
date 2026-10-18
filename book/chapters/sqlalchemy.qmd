@@ -1,11 +1,10 @@
 # Sync and async, side by side
 
 ![](../images/spot-1.svg){.spot fig-alt="A small isometric town on a yellow tile, joined to a blue-topped Postgres cylinder by two pipes. An elephant in a hoodie works on a laptop in front."}
-SQLAlchemy 2.0 runs the same models and statements in sync and async code. The difference lies in
-what the process does while it waits for the database. Sync code blocks until each query returns,
-while async code can start other queries in the meantime, so ten queries that each spend 200 ms on
-the server take about 2 s one after another and about 200 ms under `asyncio.gather`. Each query on
-its own takes just as long either way.
+SQLAlchemy 2.0 runs the same models and statements in **sync** and **async** code. Sync code blocks
+until each query returns, while async code can start other queries in the meantime. Ten queries that
+each spend 200 ms on the server take about 2 s one after another and about 200 ms under
+`asyncio.gather`.
 
 ## Drivers and engines
 
@@ -59,9 +58,7 @@ created with `expire_on_commit=False`. The simplest fix is to load relationships
 Each query in flight needs its own connection, so the connection pool limits how many queries can
 overlap. `create_async_engine` defaults to `pool_size=5` and `max_overflow=10`, which allows 15
 concurrent queries and makes the 16th wait for a free connection. A thread pool can reach the same
-overlap at the cost of one thread per query. In both cases the database does the same total work,
-and only the client spends less time waiting, so async does not help when the database's CPU is
-the bottleneck.
+overlap with one thread per query. Async does not help when the database's CPU is the bottleneck.
 
 ## A timed run {#watching-it-happen}
 
@@ -79,15 +76,14 @@ documentation field as the HNSW walk returns. Run it live to orbit the scene, or
 [Open full screen](../viz/index.html){target="_blank"}.
 :::
 
-The async side finishes while the sync side is still working through its questions, and the wall
-times in the corner show the difference. Each backend on the async side is a separate Postgres
-process, because Postgres starts one process per connection, so concurrency on the client costs
-connections on the server. [PgBouncer](pgbouncer.qmd) exists to manage that cost.
+The async side finishes first. Each backend on the async side is a separate Postgres process, so
+concurrency on the client costs connections on the server, which [PgBouncer](pgbouncer.qmd) can
+manage.
 
 ## Sync libraries inside async code
 
 pandas, Alembic and much older code expect a sync connection. Inside async code, `run_sync` gives
-them one that runs on top of the async connection, so no second engine is needed:
+them one that runs on top of the async connection:
 
 ```python
 async with async_engine.connect() as conn:

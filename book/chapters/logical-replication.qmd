@@ -3,7 +3,7 @@
 ![](../images/spot-4.svg){.spot fig-alt="Two cylinders, Postgres and a warehouse, joined by a pipe with rows travelling along it. An elephant wheels cubes of data between them."}
 Change data capture (CDC) follows every committed change in a database so that another system can
 stay in step with it. Pipelines are usually drawn as Postgres, then Debezium, then Kafka, then the
-target, but Postgres can stream its own changes to a second Postgres with logical replication. The
+target, but Postgres can stream its own changes to a second Postgres with **logical replication**. The
 source publishes a set of tables, the second server subscribes to them, and each committed insert,
 update and delete arrives in commit order, about 9 ms after commit in the lab. Debezium, AWS DMS and
 Redshift zero-ETL also use logical replication and can fail in the same ways.
@@ -45,9 +45,8 @@ the cap, after which the subscriber has to start over but the primary keeps its 
 ### Schema changes on the source
 
 When a column is added on the source and a row is written, the apply worker on the replica cannot fit
-that row into its table. It logs an error and retries indefinitely, and nothing after that row
-arrives until the column is added on the replica as well. Schema changes therefore go to the
-subscriber first and the publisher second, since an extra column on the replica does no harm.
+that row into its table. It logs an error and retries indefinitely until the column is added on the replica as well.
+Schema changes therefore go to the subscriber first and the publisher second, since an extra column on the replica does no harm.
 
 ### Writes on the replica
 

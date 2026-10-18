@@ -1,7 +1,7 @@
 # Postgres to Apache Doris
 
 [Apache Doris](https://doris.apache.org/) is a columnar analytical database that speaks the MySQL
-protocol. Since version 4.1 it can follow Postgres by itself, without Kafka or Debezium in between.
+protocol. Since version 4.1 it can follow Postgres, without Kafka or Debezium.
 A single `CREATE JOB` statement creates the target tables, copies the existing rows, and then
 streams changes from a replication slot on the source. This is the statement the lab ran:
 

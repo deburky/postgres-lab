@@ -209,7 +209,7 @@ sesame-import server="pg18":
 [group('book')]
 book-notebooks:
     cp out/pgvector_pg18.ipynb book/notebooks/pgvector_playground.ipynb
-    cp out/pgqueuer_playground.ipynb out/pgmq_playground.ipynb out/doris_cdc.ipynb out/pg_ducklake_playground.ipynb out/logical_replication.ipynb out/pglite_playground.ipynb book/notebooks/
+    cp out/pgqueuer_playground.ipynb out/pgmq_playground.ipynb out/doris_cdc.ipynb out/pg_ducklake_playground.ipynb out/logical_replication.ipynb out/pglite_playground.ipynb out/graph_rag_playground.ipynb book/notebooks/
     cp notebooks/sync_vs_async.ipynb notebooks/jsonb_playground.ipynb notebooks/pgbouncer_playground.ipynb book/notebooks/
 
 # the book: the replaying viz into book/viz, then quarto into book/_book (CI does the same on push)

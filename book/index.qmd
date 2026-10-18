@@ -2,10 +2,9 @@
 
 ![](images/crew.svg){.column-body-outset .hero fig-alt="An isometric ink drawing of cartoon elephants at work around a Postgres database. One sends jobs from a laptop onto a belt, one picks a job off the belt, one carries it up a ramp into a hatch on the database, one inspects the hatch with a magnifying glass, one repairs the database with a wrench, one wheels cubes of data away, one stacks them on a pile and one checks them off on a clipboard."}
 
-Applications usually keep their rows in Postgres and send other work to separate systems, such as a
-queue for background jobs, a vector store for semantic search, or a pipeline that copies changes to
-an analytical database. This book shows how Postgres can do each of these jobs itself, how each one
-works inside the database, and where it stops being a good fit.
+Applications usually keep their data in Postgres and use other systems, such as a
+queue for background jobs or a vector store for semantic search, to manage supporting tasks.
+This book shows how Postgres can do each of these jobs itself by leveraging the ecosystem of Postgres.
 
 ## The map
 
@@ -15,43 +14,38 @@ works inside the database, and where it stops being a good fit.
 ::: {}
 **Postgres from Python**
 
-How SQLAlchemy talks to Postgres in sync and async code, how JSONB stores documents next to typed
-columns, what PgBouncer does for connections, and how PGlite runs Postgres inside a test process.
+Using SQLAlchemy to talk to Postgres in sync and async code, JSONB for document storage, leveraging PgBouncer for connection management, PGlite as an in-process Postgres database.
 :::
 ::: {}
 **Search**
 
-How pgvector compares and indexes embeddings, how its HNSW index differs from DiskANN and PRISM, and
-how to load and read vectors in bulk.
+Using `pgvector` to compare and index embeddings, differences between the HNSW, DiskANN and PRISM indexes, graph retrieval next to vectors, loading and reading vectors in bulk.
 :::
 ::: {}
 **Queues**
 
-How pgqueuer runs a job queue in a table, and how pgmq builds a message queue on a visibility
-timeout.
+Using `pgqueuer` for Postgres job queues, building a message queue on a visibility
+timeout with `pgmq`.
 :::
 ::: {}
 **Moving data**
 
-How logical replication copies changes to a second Postgres, how Apache Doris follows Postgres with
-its own CDC job, and how pg_ducklake keeps columnar tables inside Postgres.
+Performing logical replication to copy changes to a second Postgres, using Apache Doris with Postgres to run a change data capture (CDC) job,
+building a Postgres lakehouse with `pg_ducklake`.
 :::
 ::: {}
 **Access and operations**
 
-How Pulumi and pgsesame keep roles and grants in code, and how the same servers run on local
-Kubernetes.
+Using Pulumi and `pgsesame` to manage roles and grants as code.
 :::
 :::
 
 ## How to read it
 
-Two chapters include a scene that replays a recorded run of the lab's app. In
-[Chapter 1](chapters/sqlalchemy.qmd) it shows sync and async vector searches side by side, and in
-[Chapter 8](chapters/pgqueuer.qmd) it shows workers sharing a queue table. Each scene plays as a
-recording until you press Run it live. The pgvector, JSONB and pgmq chapters end with a SQL console
-that runs Postgres in the page, and the appendix holds the notebooks behind the chapters, with
-their outputs.
+Chapters 1 and 9 include scenes that replay a recorded run of the lab's app. In
+[Chapter 1](chapters/sqlalchemy.qmd) it visualizes sync and async vector searches, and
+[Chapter 9](chapters/pgqueuer.qmd) illustrates the queueing mechanics. The pgvector, graph, JSONB and pgmq chapters
+provide a SQL console, where you can run queries against Postgres.
 
 ::: {.callout-tip}
 ## Run it yourself
