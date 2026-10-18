@@ -166,6 +166,17 @@ table.table, .table {
 }
 .scene button:hover { background: #5753c9; }
 
+// a boxed aside on the home page, with a spot illustration floated inside it
+.panel {
+  display: flow-root;
+  border: 1.6px solid $ink; border-radius: 10px;
+  padding: 0.9rem 1.1rem; margin: 1.5rem 0;
+  background: rgba(#9fd3f5, 0.22);
+  h3 { margin-top: 0.2rem; }
+  p:last-child { margin-bottom: 0; }
+  img.spot { width: 200px; }
+}
+
 img.hero { display: block; width: 100%; height: auto; margin: 0.5rem 0 1.5rem; }
 // a part's spot illustration, beside the opening paragraph of its first chapter
 img.spot { float: right; width: 240px; height: auto; margin: 0.2rem 0 0.8rem 1.2rem; }

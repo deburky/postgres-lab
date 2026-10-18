@@ -36,9 +36,31 @@ building a Postgres lakehouse with `pg_ducklake`.
 ::: {}
 **Access and operations**
 
-Using Pulumi and `pgsesame` to manage roles and grants as code.
+Using Pulumi and `pgsesame` to manage roles and grants as code, Supabase as a backend built from Postgres features.
 :::
 :::
+
+::: {.panel}
+### Slonik, the Postgres elephant
+
+![](images/archive.svg){.spot fig-alt="An elephant in a violet waistcoat holds a clipboard on a small blue tile, between a stack of letters and a crate of data."}
+The Postgres elephant is called **Slonik**, Russian for "little elephant". In 1997, when the
+project was looking for a mascot, David Yang suggested an elephant on the pgsql-hackers mailing
+list, after Agatha Christie's *Elephants Can Remember*. The first drawing came from St. Petersburg
+in April 1999. Dmitry Samersov of the WebPlus studio posted a website mockup with an elephant in a
+diamond, sketched by the designer Ekaterina Papchinskaya, who saved it as `slonik.gif`, and the
+name stuck. Daniel Lundin later redrew the elephant as a vector image without the diamond, and his
+version became the official logo with the new postgresql.org website in late 2004.
+
+When Jan Wieck, who was writing a replication system, asked what `slonik` meant, Oleg Bartunov
+answered "little elephant", and the plural, *slony*, became the name of Slony-I. In
+March 2025 Samersov transferred the rights to the 1999 drawing to the community under a Creative
+Commons license. The elephants in this book are drawn for it and are not the Slonik logo, which is
+a registered trademark of the PostgreSQL Community Association of Canada.[^logo]
+:::
+
+[^logo]: Oleg Bartunov's [account of the logo](https://habr.com/en/companies/postgrespro/articles/907746/)
+  on Habr, and the [PostgreSQL wiki](https://wiki.postgresql.org/wiki/Logo).
 
 ## How to read it
 

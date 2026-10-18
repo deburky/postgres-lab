@@ -43,6 +43,7 @@ book:
       chapters:
         - chapters/access.qmd
         - chapters/kubernetes.qmd
+        - chapters/supabase.qmd
   appendices:
     - chapters/running-the-lab.qmd
     - notebooks/index.qmd

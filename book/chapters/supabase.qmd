@@ -1,0 +1,166 @@
+# Supabase: Postgres as a backend
+
+[Supabase](https://supabase.com) is a hosted Postgres with a few services around it: an API, Auth,
+Edge Functions, Storage and Realtime. Most of what an application needs from a backend is built
+from Postgres features. The API is generated from the schema, access control is **Row Level
+Security**, and the queue, the scheduler and the secrets are extensions. The database even calls
+out to functions over HTTP. The examples come from a small project outside this repository that
+syncs Obsidian notes into Supabase for search, run on the Supabase CLI's local stack (Postgres
+17.11).
+
+## The API from the schema
+
+[PostgREST](https://postgrest.org) turns the schema into a REST API. Each table and view in an
+exposed schema becomes an endpoint under `/rest/v1/`, and each SQL function becomes an RPC endpoint,
+so the search function below is called as `POST /rest/v1/rpc/match_user_notes`. The client
+libraries wrap these calls, as in the Obsidian plugin:
+
+```ts
+const { data, error } = await db.rpc("match_user_notes", { query_embedding, match_count: 8, query_text });
+```
+
+The project has no API server of its own. New endpoints come from migrations, and functions that
+should stay private live in a schema that PostgREST does not expose, such as `util`.
+
+## Roles and Row Level Security
+
+PostgREST connects to Postgres as the `authenticator` role and switches, for each request, to the
+role named in the request's JWT. A publishable key carries `anon`, a signed-in user's token carries
+`authenticated`, and a secret key carries `service_role`, which bypasses RLS and belongs only in
+server code. The token's claims are set as `request.jwt.claims`, and `auth.uid()` reads the user id
+from them, so a policy can compare it with a column:
+
+```sql
+alter table public.user_notes enable row level security;
+
+create policy "read own notes"
+    on public.user_notes for select
+    to authenticated
+    using ((select auth.uid()) = user_id);
+```
+
+Wrapping `auth.uid()` in a subquery makes Postgres evaluate it once per query instead of once per row.
+With the claims set by hand in a transaction, the owner of three notes saw all three, another
+signed-in user saw none, and `anon` saw none. The roles also carry their own limits: on the local
+stack `anon` has a `statement_timeout` of 3 s and `authenticated` one of 8 s.
+
+Functions run as their caller by default (`security invoker`), so RLS applies inside them, and
+`match_user_notes` returns only the caller's rows. A `security definer` function runs as its owner
+and bypasses RLS, which the queue triggers below need because the writing user has no rights on the
+queue. Each of those functions sets `search_path = ''` and names every object with its schema, so
+that a caller cannot redirect it to objects of their own.
+
+## UPDATE without WHERE
+
+The `authenticator` role preloads two libraries, `supautils` and `safeupdate`. **safeupdate**
+rejects an `UPDATE` or `DELETE` that has no `WHERE` clause with `UPDATE requires a WHERE clause`.
+It applies to every request that comes through the API, including statements inside a `security
+definer` function called over RPC, while the same statement run as `postgres` from psql succeeds.
+In the project, a function that reset a single-row state table with
+`update util.embedding_worker set dispatched_at = '-infinity'` failed only when the Edge Function
+called it, and the fix was a `WHERE` clause that matches the one row:
+
+```sql
+update util.embedding_worker set dispatched_at = '-infinity' where id;
+```
+
+## Queue, schedule and secrets
+
+The project embeds each note section automatically. Inserting a section, or changing its text,
+fires a trigger that sends a job to a [pgmq](pgmq.qmd) queue. A dispatcher function then reads a
+batch of jobs, takes the Edge Function's URL and an API key from **Vault**, and posts the batch with
+**pg_net**:
+
+```sql
+select decrypted_secret into api_key
+from vault.decrypted_secrets where name = 'embed_cron_key';
+
+perform net.http_post(
+    url := function_url,
+    body := jsonb_build_object('jobs', batch),
+    headers := jsonb_build_object('Content-Type', 'application/json', 'apikey', api_key),
+    timeout_milliseconds := 60000
+);
+```
+
+Vault stores each secret encrypted in `vault.secrets` and decrypts it only in the
+`vault.decrypted_secrets` view. `net.http_post` inserts the request into `net.http_request_queue`,
+and a background worker sends it after the transaction commits, so the write is not slowed down and
+a rolled-back write sends nothing. The Edge Function embeds the batch with gte-small, stores each
+vector and deletes its job in one transaction, and then asks the database for the next batch.
+**pg_cron** runs the dispatcher at the top of every hour to retry jobs whose request failed:
+
+```sql
+select cron.schedule('process-embedding-jobs', '0 * * * *', 'select util.dispatch_embedding_batch()');
+```
+
+The dispatcher used to send several batches in parallel. Edge Functions have 2 s of CPU time per
+request, and parallel batches of ten long sections ran past it and were cancelled with 503 errors.
+The dispatcher now keeps one batch in flight. A single-row table records when the last batch was
+sent, and an `UPDATE` on that row, which only one transaction can hold at a time, decides whether a
+writer starts a new chain.
+
+The same idea serves the project's Telegram inbox. Two desktops can pull messages without
+duplicates, because `update ... set pulled_at = now() where pulled_at is null returning *` marks and
+returns each message in one statement.
+
+## Hybrid search
+
+Vector search misses exact names, acronyms and rare words, which full-text search finds.
+`match_user_notes` runs both in one SQL function and merges the two rankings by reciprocal rank
+fusion. Each section scores `1 / (50 + rank)` in each list it appears in, so a section near the top
+of either list ranks high, and highest when it tops both. The lexemes live in a stored generated
+column, with the file name and heading weighted above the text:
+
+```sql
+alter table public.user_notes
+    add column fts tsvector generated always as (
+        setweight(
+            to_tsvector(
+                'english',
+                regexp_replace(coalesce(source_path, ''), '^.*/|\.md$', '', 'g') || ' ' || coalesce(heading, '')
+            ),
+            'A'
+        )
+        || setweight(to_tsvector('english', body), 'B')
+    ) stored;
+
+create index user_notes_fts_idx on public.user_notes using gin (fts);
+```
+
+The column names the `english` configuration, because a generated column needs an immutable
+expression and the default configuration is a setting that can change.[^magda-gen] The query side
+uses `websearch_to_tsquery`, which accepts what a user types, including quoted phrases, `or` and
+`-` exclusions, without raising a syntax error, and ranks matches with `ts_rank_cd`, which favors
+documents where the query terms appear close together.[^magda-rank] A GIN index stores only the
+lexemes and the rows that contain them, without their positions or weights, so Postgres reads those
+from the table when it ranks.[^magda-gin] The function also returns snippets made with `ts_headline`,
+whose output is not safe to insert into a web page without sanitizing it.[^magda-headline]
+
+## Supabase and AWS
+
+Each Supabase service has a counterpart among AWS services, and Supabase itself runs on AWS:
+
+| Supabase | AWS |
+|---|---|
+| Postgres | RDS or Aurora |
+| PostgREST | API Gateway and the CRUD Lambdas behind it |
+| Auth | Cognito |
+| Edge Functions | Lambda |
+| pgmq | SQS |
+| pg_cron | EventBridge Scheduler |
+| Vault | Secrets Manager |
+| Storage | S3 |
+| Realtime | AppSync or WebSocket APIs in API Gateway |
+
+On AWS these are separate services joined by IAM policies. In Supabase the queue, the schedule, the
+secrets and the access rules are Postgres objects, created by migrations and covered by the same
+transactions as the data. Edge Functions are closer to Cloudflare Workers than to Lambda: they run
+TypeScript, JavaScript or WebAssembly on Deno, with 256 MB of memory and 2 s of CPU per request.
+
+[^magda-gen]: Denis Magda, *Just Use Postgres!* (Manning), chapter 6, p. 50 of the Supabase-curated
+  Manning sampler *Mastering PostgreSQL* (2026).
+[^magda-rank]: Magda, *Just Use Postgres!*, chapter 6, sampler pp. 57 and 59.
+[^magda-gin]: Magda, *Just Use Postgres!*, chapter 6, sampler pp. 70–71, which also names the RUM
+  index for queries that need positions from the index.
+[^magda-headline]: Magda, *Just Use Postgres!*, chapter 6, sampler p. 67.
